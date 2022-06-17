@@ -31,6 +31,10 @@ module ocn_tracer_advection_mono
    use ocn_diagnostics_variables
    use ocn_tracer_advection_shared
    use ocn_tracer_advection_vert
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
+   use iso_c_binding
 
    implicit none
    private
@@ -45,6 +49,114 @@ module ocn_tracer_advection_mono
    ! public method interfaces
    public :: ocn_tracer_advection_mono_tend, &
              ocn_tracer_advection_mono_init
+
+   type(c_ptr) :: d_hProvInv, d_flxIn, d_flxOut, d_highOrderFlx, &
+                  d_hNewInv, d_hProv, d_lowOrderFlx, d_tracerCur, &
+                  d_tracerMax, d_tracerMin, d_workTend
+
+   interface
+      subroutine ocn_advect_mono_end(transTend) &
+                    bind(C,name="ocn_advect_mono_end")
+        use iso_c_binding
+        use mpas_kind_types
+        real(kind=RKIND), intent(in), dimension(*) :: transTend
+      end subroutine
+
+      subroutine ocn_advect_mono_init(nCells, nEdges, nVertLevels, coef3rdOrder, eps) &
+                    bind(C,name="ocn_advect_mono_init")
+        use iso_c_binding
+        integer(c_int), intent(in), value :: nCells, nEdges, nVertLevels
+        real(c_double), intent(in), value :: coef3rdOrder, eps
+      end subroutine
+
+      subroutine ocn_advect_mono_copyin(tendSize, normalThicknessFlux, &
+                                        w, tend,layerThickness) &
+                    bind(C,name="ocn_advect_mono_copyin")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), dimension(*) :: tendSize
+        real(kind=RKIND), intent(in), dimension(*) :: normalThicknessFlux,w,layerThickness
+        real(kind=RKIND), intent(in), dimension(*) :: tend
+      end subroutine
+
+      subroutine ocn_advect_mono_check(tnormalThicknessFlux, tdvEdge, ttracerCur) &
+                    bind(C,name="ocn_advect_mono_check")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), dimension(*) :: tnormalThicknessFlux, ttracerCur
+        real(c_double), intent(in), dimension(*) :: tdvEdge
+      end subroutine
+
+      subroutine ocn_advect_mono_check2(h_nAdvCellsForEdge, h_advCellsForEdge) &
+                    bind(C,name="ocn_advect_mono_check2")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), dimension(*) :: h_nAdvCellsForEdge
+        integer(c_int), intent(in), dimension(*) :: h_advCellsForEdge
+      end subroutine
+
+      subroutine ocn_advect_mono_pre(dt,hProv, hProvInv, hNewInv) &
+                    bind(C,name="ocn_advect_mono_pre")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), value :: dt
+        real(c_double), intent(in), dimension(*) :: hProv, hProvInv, hNewInv
+      end subroutine
+
+      subroutine ocn_advect_mono_set_flux(nCells, nEdges, tracerCur,tracerMin,tracerMax, &
+                                lowOrderFlx,highOrderFlx) &
+                    bind(C,name="ocn_advect_mono_set_flux")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), value :: nCells, nEdges
+        real(c_double), intent(in), dimension(*) :: tracerCur,tracerMin,tracerMax
+        real(c_double), intent(in), dimension(*) :: lowOrderFlx,highOrderFlx
+      end subroutine
+
+      subroutine ocn_advect_mono_set_flux_inout(initNCells, nCells, nEdges, dt, &
+                                highOrderFlx, workTend, flxIn, flxOut) &
+                    bind(C,name="ocn_advect_mono_set_flux_inout")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), value :: dt
+        integer(c_int), intent(in), value :: nEdges, initNCells, nCells
+        real(c_double), intent(in), dimension(*) :: highOrderFlx, workTend, flxIn, flxOut
+      end subroutine
+
+      subroutine ocn_advect_mono_compute_tend(iTracer, nCells, dt, tend) &
+                    bind(C,name="ocn_advect_mono_compute_tend")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), value :: dt
+        integer(c_int), intent(in), value :: iTracer, nCells
+        real(c_double), intent(in), dimension(*) :: tend
+      end subroutine
+
+      subroutine ocn_advect_mono_cell_init(nCells) &
+                    bind(C,name="ocn_advect_mono_cell_init")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), value :: nCells
+      end subroutine
+
+      subroutine ocn_advect_mono_vert_flux(nCells, mxlvl, vertOrder, &
+                    flxIn, flxOut, tracerCur, workTend) &
+                    bind(C,name="ocn_advect_mono_vert_flux")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), value :: vertOrder, nCells, mxlvl
+        real(c_double), intent(in), dimension(*) :: flxIn, flxOut
+        real(c_double), intent(in), dimension(*) :: tracerCur, workTend
+      end subroutine
+
+      subroutine ocn_advect_mono_update_tend(dt, iTracer, nCells, mxlvl) &
+                    bind(C,name="ocn_advect_mono_update_tend")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), value :: dt
+        integer(c_int), intent(in), value :: iTracer, nCells, mxlvl
+      end subroutine
+   end interface
 
 !**********************************************************************
 
@@ -98,6 +210,7 @@ module ocn_tracer_advection_mono
       !-----------------------------------------------------------------
 
       integer ::          &
+         mxlvl,           &! maximum # of levels
          i, iCell, iEdge, &! horz indices
          cell1, cell2,    &! neighbor cell indices
          nCells, nEdges,  &! numbers of cells or edges
@@ -137,6 +250,9 @@ module ocn_tracer_advection_mono
       real (kind=RKIND), parameter :: &
          eps = 1.e-10_RKIND  ! small number to avoid numerical difficulties
 
+      integer :: tendSize(3)
+      real (kind=RKIND), dimension(:,:,:), allocatable :: transTend
+
       ! end of preamble
       !----------------
       ! begin code
@@ -146,6 +262,9 @@ module ocn_tracer_advection_mono
 #endif
       ! Get dimensions
       numTracers  = size(tracers,dim=1)
+
+      allocate(transTend   (size(tend,2) ,size(tend,3), size(tend,1)))
+      tendSize = shape(transTend)
 
       ! allocate temporary arrays
       allocate(wgtTmp      (nVertLevels), &
@@ -163,15 +282,27 @@ module ocn_tracer_advection_mono
                lowOrderFlx (nVertLevels+1,max(nCellsAll,nEdgesAll)+1), &
                highOrderFlx(nVertLevels+1,max(nCellsAll,nEdgesAll)+1))
 
-      !$acc enter data create(wgtTmp, flxTmp, sgnTmp, &
-      !$acc                   tracerCur, tracerMin, tracerMax, &
-      !$acc                   hNewInv, hProv, hProvInv, flxIn, flxOut, &
-      !$acc                   workTend, lowOrderFlx, highOrderFlx)
-
+      do iTracer = 1,numTracers
+         transTend(:,:,iTracer) = tend(iTracer,:,:)
+      end do
+      
 #ifdef _ADV_TIMERS
       call mpas_timer_stop('allocates')
       call mpas_timer_start('prov thickness')
 #endif
+
+#ifdef USE_YAKL
+
+      call ocn_advect_mono_copyin(tendSize, normalThicknessFlux, &
+                                    w, tend,layerThickness)
+      call ocn_advect_mono_pre(dt,hProv, hProvInv, hNewInv)
+
+#else
+
+      !$acc enter data create(wgtTmp, flxTmp, sgnTmp, &
+      !$acc                   tracerCur, tracerMin, tracerMax, &
+      !$acc                   hNewInv, hProv, hProvInv, flxIn, flxOut, &
+      !$acc                   workTend, lowOrderFlx, highOrderFlx)
 
       ! Compute some provisional layer thicknesses
       ! Note: This assumes we are in the first part of the horizontal/
@@ -222,6 +353,8 @@ module ocn_tracer_advection_mono
       !$omp end parallel
 #endif
 
+#endif ! USE_YAKL
+
 #ifdef _ADV_TIMERS
       call mpas_timer_stop('prov thickness')
 #endif
@@ -254,11 +387,23 @@ module ocn_tracer_advection_mono
         ! Compute the high and low order horizontal fluxes.
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('cell init')
-        call mpas_timer_start('tracer bounds')
 #endif
 
         ! set nCells to first halo level
         nCells = nCellsHalo(1)
+        ! Need all the edges around the 1 halo cells and owned cells
+        nEdges = nEdgesArray( 2 )
+
+#ifdef USE_YAKL
+
+        call ocn_advect_mono_set_flux(nCells,nEdges,tracerCur,tracerMin,tracerMax, &
+                                      lowOrderFlx,highOrderFlx)
+
+#else
+
+#ifdef _ADV_TIMERS
+        call mpas_timer_start('tracer bounds')
+#endif
 
         ! Determine bounds on tracer (tracerMin and tracerMax) from
         ! surrounding cells for later limiting.
@@ -378,10 +523,22 @@ module ocn_tracer_advection_mono
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('horiz flux')
+#endif
+
+#endif ! USE_YAKL
+
+#ifdef _ADV_TIMERS
         call mpas_timer_start('scale factor build')
 #endif
 
         ! Initialize flux arrays for all cells
+
+#ifdef USE_YAKL
+
+        call ocn_advect_mono_set_flux_inout(nCellsAll, nCellsHalo(1), nEdges, dt, &
+                    highOrderFlx, workTend, flxIn, flxOut)
+
+#else
 
 #ifdef MPAS_OPENACC
         !$acc parallel loop &
@@ -510,10 +667,18 @@ module ocn_tracer_advection_mono
         !$omp end parallel
 #endif
 
+#endif  !  USE_YAKL
+
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('rescale horiz fluxes')
         call mpas_timer_start('flux accumulate')
 #endif
+
+#ifdef USE_YAKL
+
+        call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt,transTend(:,:,iTracer))
+
+#else
 
         ! Accumulate the scaled high order vertical tendencies
         ! and the upwind tendencies
@@ -562,6 +727,8 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 #endif
+
+#endif  ! USE_YAKL
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('flux accumulate')
@@ -655,6 +822,12 @@ module ocn_tracer_advection_mono
 #ifdef _ADV_TIMERS
         call mpas_timer_start('cell init vert')
 #endif
+
+#ifdef USE_YAKL
+
+        call ocn_advect_mono_cell_init(nCellsAll)
+
+#else
         ! Initialize variables for use in this iTracer iteration
 
 #ifdef MPAS_OPENACC
@@ -673,6 +846,8 @@ module ocn_tracer_advection_mono
         !$omp end parallel
 #endif
 
+#endif ! USE_YAKL
+
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('cell init vert')
         call mpas_timer_start('vertical bounds')
@@ -680,6 +855,14 @@ module ocn_tracer_advection_mono
 
         ! Need all owned and 1 halo cells
         nCells = nCellsHalo(1)
+
+#ifdef USE_YAKL
+
+        mxlvl = maxval(maxLevelCell)
+        call ocn_advect_mono_vert_flux(nCells,mxlvl,vertOrder,flxIn,flxOut,tracerCur,workTend)
+
+#else
+
 
         ! Determine bounds on tracerCur from neighbor values for limiting
 #ifdef MPAS_OPENACC
@@ -781,8 +964,21 @@ module ocn_tracer_advection_mono
         !$omp end parallel
 #endif
 
+#endif  ! USE_YAKL
+
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('vertical flux')
+#endif
+        ! Need one halo of cells around owned cells
+        nCells = nCellsHalo(1) ! Need one halo around owned cells
+        mxlvl = maxval(maxLevelCell)
+#ifdef USE_YAKL
+
+       call ocn_advect_mono_update_tend(dt, iTracer, nCells, mxlvl)
+
+#else
+
+#ifdef _ADV_TIMERS
         call mpas_timer_start('scale factor build')
 #endif
 
@@ -872,8 +1068,8 @@ module ocn_tracer_advection_mono
               workTend(k, iCell) = workTend(k, iCell)       &
                                  + (highOrderFlx(k+1,iCell) &
                                   - highOrderFlx(k  ,iCell))
-              tend(iTracer,k,iCell) = tend(iTracer,k,iCell) &
-                                    + workTend(k,iCell)
+              transTend(k,iCell,iTracer) = transTend(k,iCell,iTracer) &
+                                         + workTend(k,iCell)
            end do ! k loop
 
         end do ! iCell loop
@@ -882,9 +1078,14 @@ module ocn_tracer_advection_mono
         !$omp end parallel
 #endif
 
-        ! Compute advection diagnostics and monotonicity checks if requested
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('flux accumulate')
+#endif
+
+#endif  ! USE_YAKL
+
+        ! Compute advection diagnostics and monotonicity checks if requested
+#ifdef _ADV_TIMERS
         call mpas_timer_start('advect diags vert')
 #endif
         if (computeBudgets) then
@@ -975,10 +1176,21 @@ module ocn_tracer_advection_mono
 #ifdef _ADV_TIMERS
       call mpas_timer_start('deallocates')
 #endif
+
+#ifdef USE_YAKL
+      call ocn_advect_mono_end(transTend)
+#else
       !$acc exit data delete(wgtTmp, flxTmp, sgnTmp, &
       !$acc                  tracerCur, tracerMin, tracerMax, &
       !$acc                  hNewInv, hProv, hProvInv, flxIn, flxOut, &
       !$acc                  workTend, lowOrderFlx, highOrderFlx)
+#endif !USE_YAKL
+
+      do iTracer = 1,numTracers
+         tend(iTracer,:,:) = transTend(:,:,iTracer)
+      end do
+      
+      deallocate(transTend)
 
       deallocate(wgtTmp,       &
                  flxTmp,       &
@@ -1021,6 +1233,9 @@ module ocn_tracer_advection_mono
       integer, intent(out) :: &
          err                   !< [out] error flag
 
+      integer, pointer :: nVertLevels, nCells, nEdges
+      integer :: mxlvl
+
       ! end of preamble
       !----------------
       ! begin code
@@ -1052,6 +1267,13 @@ module ocn_tracer_advection_mono
 
       ! Set flag for checking monotonicity
       monotonicityCheck = config_check_tracer_monotonicity
+
+#ifdef USE_YAKL
+      call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
+      call mpas_pool_get_dimension(meshPool, 'nCells', nCells)
+      call mpas_pool_get_dimension(meshPool, 'nEdges', nEdges)
+      call ocn_advect_mono_init(nCells, nEdges, nVertLevels, coef3rdOrder,eps)
+#endif
 
    end subroutine ocn_tracer_advection_mono_init!}}}
 

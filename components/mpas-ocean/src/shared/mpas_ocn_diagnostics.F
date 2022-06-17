@@ -37,6 +37,7 @@ module ocn_diagnostics
    use ocn_diagnostics_variables
    use ocn_mesh
    use ocn_surface_land_ice_fluxes
+   use iso_c_binding
 
    implicit none
    private
@@ -132,6 +133,20 @@ contains
 
       integer, dimension(:), pointer :: &
         landIceMask
+
+      interface
+          subroutine ocn_diagnostics_update_device(normalVelocity, layerThickness) &
+                        bind(C,name="ocn_diagnostics_update_device")
+            use iso_c_binding
+            use mpas_kind_types
+            real(kind=RKIND), intent(in), dimension(*) :: normalVelocity, layerThickness
+          end subroutine
+          
+          subroutine ocn_diag_update_density() &
+                        bind(C,name="ocn_diag_update_density")
+          end subroutine
+          
+      end interface
 
       call mpas_timer_start('diagnostic solve')
 
@@ -393,6 +408,8 @@ contains
                 landIceFraction, landIceMask, timeLevel, indexTemperature, indexSalinity)
       end if
 
+      call ocn_yakl_fence
+
       if ( full_compute ) then
 
          !
@@ -535,6 +552,16 @@ contains
 
       integer, intent(out) :: err !< Output: error flag
 
+      interface
+          subroutine ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVorticity) &
+                        bind(C,name="ocn_diag_solve_circ")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: vertexDegree
+            real(kind=RKIND), intent(in), dimension(*) :: normalVelocity, circulation, relativeVorticity
+          end subroutine
+      end interface
+
       !-----------------------------------------------------------------
       !
       ! local variables
@@ -547,6 +574,9 @@ contains
 
       err = 0
 
+#ifdef USE_YAKL
+call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVorticity)
+#else
 #ifdef MPAS_OPENACC
       !$acc parallel loop collapse(2) present(circulation, relativeVorticity)
 #else
@@ -588,6 +618,9 @@ contains
       !$omp end parallel
 #endif
 
+
+#endif ! USE_YAKL
+
    !--------------------------------------------------------------------
 
    end subroutine ocn_relativeVorticity_circulation!}}}
@@ -609,6 +642,29 @@ contains
 
    subroutine ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
                                                       layerThickness)!{{{
+
+      use ocn_mesh   ! debug, mdt :: this should be module-level
+
+      implicit none
+
+      interface
+          subroutine ocn_diag_solve_layer_thick_center(nEdges, layerThickness, layerThickEdge) &
+                        bind(C,name="ocn_diag_solve_layer_thick_center")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nEdges
+            real(kind=RKIND), intent(in), dimension(*) :: layerThickness, layerThickEdge
+          end subroutine
+
+          subroutine ocn_diag_solve_layer_thick_upwind(nEdges, normalVelocity, layerThickness, layerThickEdge) &
+                        bind(C,name="ocn_diag_solve_layer_thick_upwind")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nEdges
+            real(kind=RKIND), intent(in), dimension(*) :: normalVelocity, layerThickness, &
+                                                            layerThickEdge
+          end subroutine
+      end interface
 
       !-----------------------------------------------------------------
       ! input variables
@@ -641,6 +697,9 @@ contains
       ! Begin code
 
       ! Compute mean layer thickness at edge
+#ifdef USE_YAKL
+        call ocn_diag_solve_layer_thick_center(nEdgesAll, layerThickness, layerThicknessEdge)
+#else
 #ifdef MPAS_OPENACC
       !$acc parallel loop &
       !$acc    present(layerThickness, layerThickEdgeMean, &
@@ -671,6 +730,7 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+#endif ! USE_YAKL
 
       ! Compute edge flux based on option set on init
       select case (thickEdgeFluxChoice)
@@ -954,6 +1014,36 @@ contains
       !                                       (positive points from vertex1 to vertex2)
       !                                units: s^{-1} m^{-1}
       real (kind=RKIND), dimension(:,:), allocatable :: vorticityGradientTangentialComponent
+
+      interface
+          subroutine ocn_diagnostic_solve_vort(nVertices,nEdges,nCells,vertexDegree, &
+                            normalizedRelativeVorticityEdge, normalizedPlanetaryVorticityEdge, &
+                            normalizedRelativeVorticityCell) &
+                        bind(C,name="ocn_diagnostic_solve_vort")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nVertices,nEdges,nCells,vertexDegree
+            real(kind=RKIND), intent(in), dimension(*) :: normalizedRelativeVorticityEdge, &
+                            normalizedPlanetaryVorticityEdge, &
+                            normalizedRelativeVorticityCell
+          end subroutine
+
+          subroutine ocn_diagnostic_apvm(nEdges, &
+                            normalizedRelativeVorticityEdge) &
+                        bind(C,name="ocn_diagnostic_apvm")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nEdges
+            real(kind=RKIND), intent(in), dimension(*) :: normalizedRelativeVorticityEdge
+          end subroutine
+      end interface
+
+#ifdef USE_YAKL
+      call ocn_diagnostic_solve_vort(nVertices,nEdges,nCells,vertexDegree, &
+                normalizedRelativeVorticityEdge, normalizedPlanetaryVorticityEdge, &
+                normalizedRelativeVorticityCell)
+#else
+
 #ifdef MPAS_OPENACC
       !$acc declare device_resident(normalizedPlanetaryVorticityVertex, &
       !$acc                         normalizedRelativeVorticityVertex, &
@@ -1065,6 +1155,8 @@ contains
       !$omp end parallel
 #endif
 
+#endif  ! USE_YAKL
+
       nCells = nCellsAll
       nVertices = nVerticesAll
       nEdges = nCellsAll
@@ -1151,8 +1243,10 @@ contains
 
       endif
 
+#ifndef USE_YAKL
       deallocate(normalizedPlanetaryVorticityVertex, &
                  normalizedRelativeVorticityVertex)
+#endif  ! USE_YAKL
 
 
    end subroutine ocn_diagnostic_solve_vorticity!}}}
@@ -1212,10 +1306,27 @@ contains
       integer :: iCell, k, i, iEdge
       integer :: nCells
 
+      interface
+          subroutine ocn_diagnostic_solve_rich(coef, nCells, BruntVaisalaFreqTop, &
+                            RiTopOfCell) &
+                        bind(C,name="ocn_diagnostic_solve_rich")
+            use iso_c_binding
+            use mpas_kind_types
+            real(c_double), intent(in), value :: coef
+            integer(c_int), intent(in), value :: nCells
+            real(kind=RKIND), intent(in), dimension(*) :: BruntVaisalaFreqTop, &
+                            RiTopOfCell
+          end subroutine
+      end interface
+
       !
       ! Brunt-Vaisala frequency (this has units of s^{-2})
       !
       coef = -gravity / rho_sw
+      nCells = nCellsHalo( 2 )
+#ifdef USE_YAKL
+      call ocn_diagnostic_solve_rich(coef, nCells, BruntVaisalaFreqTop, RiTopOfCell)
+#else
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
       !$acc          present(BruntVaisalaFreqTop, displacedDensity, density, zMid, maxLevelCell, &
@@ -1244,7 +1355,6 @@ contains
       ! Gradient Richardson number
       !
 
-      nCells = nCellsHalo( 2 )
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
       !$acc          present(RiTopOfCell, maxLevelCell, nEdgesOnCell, edgesOnCell, normalVelocity, &
@@ -1274,6 +1384,7 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+#endif ! USE_YAKL
 
    end subroutine ocn_diagnostic_solve_richardson!}}}
 
@@ -1532,7 +1643,7 @@ contains
       !
       !-----------------------------------------------------------------
 
-      integer :: nCells, nEdges
+      integer :: nCells, nEdges, nCellsH
       integer :: iCell, iVertex, iEdge
       integer :: i, j, k
       integer :: edgeSignOnCell_temp, eoe
@@ -1540,12 +1651,39 @@ contains
       real(kind=RKIND) :: dcEdge_temp, dvEdge_temp, r_tmp, weightsOnEdge_temp
 
       real (kind=RKIND), dimension(:), allocatable:: div_hu,div_huTransport,div_huGMBolus
+
+          subroutine ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, &
+                normalTransportVelocity, vertVelocityTop, vertTransportVelocityTop, &
+                vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
+                kineticEnergyCell, tangentialVelocity) &
+                        bind(C,name="ocn_diagnostic_solve_vort_vel")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nCells, nCellsH, nEdges
+            real(kind=RKIND), intent(in), dimension(*) :: normalGMBolusVelocity, normalTransportVelocity, &
+                                            vertVelocityTop, vertTransportVelocityTop, &
+                                            vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
+                                            kineticEnergyCell, tangentialVelocity
+          end subroutine
+      end interface
+
 #ifdef MPAS_OPENACC
       !$acc declare device_resident(div_hu, div_huTransport, div_huGMBolus)
 #endif
 
       ! Need owned cells for relativeVorticityCell
       nCells = nCellsOwned
+
+#ifdef USE_YAKL
+      nCellsH = nCellsHalo( 2 )
+      nEdges = nEdgesHalo( 2 )
+
+      call ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, normalTransportVelocity, &
+                                            vertVelocityTop, vertTransportVelocityTop, &
+                                            vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
+                                            kineticEnergyCell, tangentialVelocity)
+
+#else
 
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
@@ -1671,6 +1809,8 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+
+#endif ! USE_YAKL
 
    end subroutine ocn_diagnostic_solve_vortVel!}}}
 
@@ -1845,7 +1985,20 @@ contains
       integer :: iCell
       integer :: k
 
+      interface
+          subroutine ocn_diagnostic_solve_zcoord(ssh) &
+                        bind(C,name="ocn_diagnostic_solve_zcoord")
+            use iso_c_binding
+            use mpas_kind_types
+            real(kind=RKIND), intent(in), dimension(*) :: ssh
+          end subroutine
+      end interface
+
       nCells = nCellsAll
+
+#ifdef USE_YAKL
+      call ocn_diagnostic_solve_zcoord(ssh)
+#else
 
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
@@ -1882,6 +2035,8 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+
+#endif ! USE_YAKL
 
    end subroutine ocn_diagnostic_solve_z_coordinates!}}}
 
@@ -1937,6 +2092,16 @@ contains
       integer :: k
 
       real (kind=RKIND), dimension(:), allocatable:: pTop
+
+      interface
+          subroutine ocn_diag_pressure(gravity) &
+                        bind(C,name="ocn_diag_pressure")
+            use iso_c_binding
+            use mpas_kind_types
+            real(c_double), intent(in), value :: gravity
+          end subroutine
+      end interface
+
 #ifdef MPAS_OPENACC
       !$acc declare device_resident(pTop)
 #endif
@@ -1989,6 +2154,10 @@ contains
 
       else
 
+#ifdef USE_YAKL
+        call ocn_diag_pressure(gravity)
+#else
+
 #ifdef MPAS_OPENACC
         !$acc parallel loop present(layerThickness, pressure, surfacePressure, density, &
         !$acc                       minLevelCell, maxLevelCell)
@@ -2012,6 +2181,8 @@ contains
         !$omp end do
         !$omp end parallel
 #endif
+
+#endif ! USE_YAKL
 
       endif
 

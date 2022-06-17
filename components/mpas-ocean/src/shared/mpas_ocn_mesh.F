@@ -23,6 +23,19 @@
 !
 !-------------------------------------------------------------------------------
 
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+
+#define C_WRAP(var) CAT(c_,var) = c_loc(var)
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+
 module ocn_mesh
 
    ! module dependencies
@@ -34,6 +47,10 @@ module ocn_mesh
 
    use ocn_config
 
+   use iso_c_binding
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
    implicit none
    private
 
@@ -85,6 +102,44 @@ module ocn_mesh
       indexToEdgeID, &! global ID of each local edge
       indexToVertexID    ! global ID of each local vertex
 
+   type(c_ptr), BIND(C, NAME='c_maxLevelCell') :: c_maxLevelCell
+   type(c_ptr), BIND(C, NAME='c_minLevelCell') :: c_minLevelCell
+   type(c_ptr), BIND(C, NAME='c_minLevelEdgeTop') :: c_minLevelEdgeTop
+   type(c_ptr), BIND(C, NAME='c_maxLevelEdgeTop') :: c_maxLevelEdgeTop
+   type(c_ptr), BIND(C, NAME='c_minLevelVertexTop') :: c_minLevelVertexTop
+   type(c_ptr), BIND(C, NAME='c_minLevelEdgeBot') :: c_minLevelEdgeBot
+   type(c_ptr), BIND(C, NAME='c_maxLevelEdgeBot') :: c_maxLevelEdgeBot
+   type(c_ptr), BIND(C, NAME='c_maxLevelVertexBot') :: c_maxLevelVertexBot
+   type(c_ptr), BIND(C, NAME='c_nAdvCellsForEdge') :: c_nAdvCellsForEdge
+   type(c_ptr), BIND(C, NAME='c_advCellsForEdge') :: c_advCellsForEdge
+   type(c_ptr), BIND(C, NAME='c_advCoefs') :: c_advCoefs
+   type(c_ptr), BIND(C, NAME='c_advCoefs3rd') :: c_advCoefs3rd
+   type(c_ptr), BIND(C, NAME='c_nEdgesOnCell') :: c_nEdgesOnCell
+   type(c_ptr), BIND(C, NAME='c_nEdgesOnEdge') :: c_nEdgesOnEdge
+   type(c_ptr), BIND(C, NAME='c_edgesOnCell') :: c_edgesOnCell
+   type(c_ptr), BIND(C, NAME='c_edgesOnVertex') :: c_edgesOnVertex
+   type(c_ptr), BIND(C, NAME='c_cellsOnEdge') :: c_cellsOnEdge
+   type(c_ptr), BIND(C, NAME='c_cellsOnCell') :: c_cellsOnCell
+   type(c_ptr), BIND(C, NAME='c_areaCell') :: c_areaCell
+   type(c_ptr), BIND(C, NAME='c_areaTriangle') :: c_areaTriangle
+   type(c_ptr), BIND(C, NAME='c_inverseAreaCell') :: c_inverseAreaCell
+   type(c_ptr), BIND(C, NAME='c_inverseAreaTriangle') :: c_inverseAreaTriangle
+   type(c_ptr), BIND(C, NAME='c_dcEdge') :: c_dcEdge
+   type(c_ptr), BIND(C, NAME='c_dvEdge') :: c_dvEdge
+   type(c_ptr), BIND(C, NAME='c_fVertex') :: c_fVertex
+   type(c_ptr), BIND(C, NAME='c_edgeSignOnCell') :: c_edgeSignOnCell
+   type(c_ptr), BIND(C, NAME='c_edgeSignOnVertex') :: c_edgeSignOnVertex
+   type(c_ptr), BIND(C, NAME='c_highOrderAdvectionMask') :: c_highOrderAdvectionMask
+   type(c_ptr), BIND(C, NAME='c_bottomDepth') :: c_bottomDepth
+   type(ocn_yakl_type), BIND(C, NAME='c_kiteAreasOnVertex') :: c_kiteAreasOnVertex
+   type(ocn_yakl_type), BIND(C, NAME='c_kiteIndexOnCell') :: c_kiteIndexOnCell
+   type(ocn_yakl_type), BIND(C, NAME='c_verticesOnCell') :: c_verticesOnCell
+   type(ocn_yakl_type), BIND(C, NAME='c_weightsOnEdge') :: c_weightsOnEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_edgesOnEdge') :: c_edgesOnEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_verticesOnEdge') :: c_verticesOnEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_cellsOnVertex') :: c_cellsOnVertex
+   type(ocn_yakl_type), BIND(C, NAME='c_fEdge') :: c_fEdge
+
    integer, public, dimension(:, :), pointer :: &
       edgesOnEdge, &! index of edges connected to each edge
       cellsOnEdge, &! index of cells connected to each edge
@@ -95,6 +150,9 @@ module ocn_mesh
       cellsOnVertex, &! index of cells connected to each vertex
       edgesOnVertex, &! index of edges connected to each vertex
       kiteIndexOnCell ! index of kite associated with each cell
+
+   real(kind=RKIND), public, dimension(:), allocatable, target :: &
+      inverseAreaTriangle  ! 1.0 / area triangle
 
    real(kind=RKIND), public, dimension(:), pointer :: &
       latCell, &! latitude  of cell centers
@@ -237,6 +295,11 @@ contains
 
       ! temporary pointers for converting masks
       integer i, k, n          ! loop indices
+      integer mxNEdges, &      ! size of 1st dim in nEdgesOnCell
+              mxConC, &        ! size of 1st dim in cellsOnCell
+              esonDim, &       ! size of 1st dim of edgeSignOnVertex
+              advSize          ! size of 1st dim in advCoefs3rd
+      
       integer, dimension(:, :), pointer :: &
          edgeMaskTmp, &
          vertexMaskTmp, &
@@ -246,6 +309,23 @@ contains
          boundaryEdgeTmp, &
          boundaryVertexTmp, &
          boundaryCellTmp
+
+      interface
+          subroutine ocn_mesh_yakl_init(nCells, nEdges, nVerticesAll, nVertLevels, &
+                                        mxNEdges, mxConC, advSize, esonDim, vertexDegree) &
+                        bind(C,name="ocn_mesh_yakl_init")
+            use iso_c_binding
+            integer(c_int), intent(in), value :: nCells, nEdges, nVerticesAll, nVertLevels, &
+                                                 mxNEdges, mxConC, advSize, esonDim, vertexDegree
+          end subroutine
+
+          subroutine ocn_diagnostics_yakl_init(nCells, nEdges, nVertices, nVertLevels) &
+                        bind(C,name="ocn_diagnostics_yakl_init")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nCells, nEdges, nVertices, nVertLevels
+          end subroutine
+      end interface
 
       !***
       !*** end of preamble, begin code
@@ -492,6 +572,7 @@ contains
                                boundaryCellTmp)
 
       allocate ( &
+            inverseAreaTriangle(size(areaTriangle)), &
             edgeMask(nVertLevels, nEdgesAll+1), &
             cellMask(nVertLevels, nCellsAll+1), &
             vertexMask(nVertLevels, nVerticesAll+1), &
@@ -566,6 +647,59 @@ contains
          invAreaCell(n) = 1.0_RKIND / areaCell(n)
       end do
       invAreaCell(nCellsAll+1) = 0.0_RKIND
+
+      do n = 1, size(areaTriangle)
+         inverseAreaTriangle(n) = 1.0_RKIND / areaTriangle(n)
+      end do
+
+#ifdef USE_YAKL
+         C_WRAP(maxLevelCell)
+         C_WRAP(minLevelCell)
+         C_WRAP(minLevelEdgeTop)
+         C_WRAP(maxLevelEdgeTop)
+         C_WRAP(minLevelVertexTop)
+         C_WRAP(minLevelEdgeBot)
+         C_WRAP(maxLevelEdgeBot)
+         C_WRAP(maxLevelVertexBot)
+         C_WRAP(nAdvCellsForEdge)
+         C_WRAP(nEdgesOnCell)
+         C_WRAP(nEdgesOnEdge)
+         C_WRAP(edgesOnCell)
+         C_WRAP(edgesOnVertex)
+         C_WRAP(advCellsForEdge)
+         C_WRAP(cellsOnEdge)
+         C_WRAP(cellsOnCell)
+         C_WRAP(areaCell)
+         C_WRAP(areaTriangle)
+         C_WRAP(invAreaCell)
+         C_WRAP(inverseAreaTriangle)
+         C_WRAP(dvEdge)
+         C_WRAP(dcEdge)
+         C_WRAP(fVertex)
+         C_WRAP(edgeSignOnCell)
+         C_WRAP(edgeSignOnVertex)
+         C_WRAP(highOrderAdvectionMask)
+         C_WRAP(advCoefs)
+         C_WRAP(advCoefs3rd)
+         C_WRAP(bottomDepth)
+         C_DECOMP(kiteAreasOnVertex)
+         C_DECOMP(kiteIndexOnCell)
+         C_DECOMP(verticesOnCell)
+         C_DECOMP(weightsOnEdge)
+         C_DECOMP(edgesOnEdge)
+         C_DECOMP(verticesOnEdge)
+         C_DECOMP(cellsOnVertex)
+         C_DECOMP(fEdge)
+
+         mxNEdges = size(edgesOnCell, 1)
+         mxConC = size(cellsOnCell,1)
+         advSize = size(advCoefs3rd, 1)
+         esonDim = size(edgeSignOnVertex, 1)
+         call ocn_mesh_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels,mxNEdges, &
+                                 mxConC, advSize, esonDim, vertexDegree)
+        
+         call ocn_diagnostics_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels)
+#endif
 
       !-----------------------------------------------------------------
       ! Copy mesh data to accelerator if needed.
@@ -936,6 +1070,13 @@ contains
          boundaryVertexTmp, &
          boundaryCellTmp
 
+
+      interface
+          subroutine ocn_mesh_yakl_update() bind(C,name="ocn_mesh_yakl_update")
+            use iso_c_binding
+          end subroutine
+      end interface
+      
       !***
       !*** end of preamble, begin code
       !***
@@ -1128,6 +1269,10 @@ contains
             int(edgeSignOnVertex(k, n))
       end do
       end do
+
+#ifdef USE_YAKL
+      call ocn_mesh_yakl_update()
+#endif
 
       ! Go ahead and update all fields on device to be safe.
       ! NOTE: if we end up computing some fields on the device during

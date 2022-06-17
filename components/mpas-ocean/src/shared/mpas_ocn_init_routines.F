@@ -122,6 +122,13 @@ contains
 
       type (mpas_pool_iterator_type) :: groupItr
 
+      interface
+          subroutine ocn_diag_mesh_yakl_update() bind(C,name="ocn_diag_mesh_yakl_update")
+            use iso_c_binding
+          end subroutine
+
+      end interface
+
       call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
       call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
       call mpas_pool_get_dimension(block % dimensions, 'nVertices', nVertices)
@@ -169,6 +176,11 @@ contains
          !$acc enter data copyin(landIceDraft)
       endif
 #endif
+
+#ifdef USE_YAKL
+      call ocn_diag_mesh_yakl_update
+#endif
+
       call ocn_diagnostic_solve(dt,  statePool, forcingPool, meshPool, scratchPool, tracersPool)
 #ifdef MPAS_OPENACC
       !$acc update host(layerThickEdgeFlux, layerThickEdgeMean)

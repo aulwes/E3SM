@@ -37,14 +37,16 @@ module ocn_time_integration_split
    use ocn_diagnostics_variables
    use ocn_diagnostics
    use ocn_gm
+   use iso_c_binding
 
    use ocn_equation_of_state
    use ocn_vmix
    use ocn_time_average_coupled
 
    use ocn_effective_density_in_land_ice
-   use ocn_surface_land_ice_fluxes
-   use ocn_transport_tests
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -94,6 +96,9 @@ module ocn_time_integration_split
       useVelocityCorrection,&! mask for velocity correction
       splitFact, &! mask for terms in split or unsplit cases
       self_attraction_and_loading_beta
+
+   type(ocn_yakl_type), BIND(C, NAME='c_normalBaroclinicVelocity') :: c_normalBaroclinicVelocity
+   type(ocn_yakl_type), BIND(C, NAME='c_normalVelocityTend') :: c_normalVelocityTend
 
 !***********************************************************************
 
@@ -708,9 +713,21 @@ module ocn_time_integration_split
          do j=1,numClinicIterations(splitExplicitStep)
 
             call mpas_timer_start('bcl iters on linear Coriolis')
-
+            call mpas_timer_start('bcl iters on linear Coriolis fuperp')
+!#if 0
+#ifdef USE_YAKL
+            call ocn_timeint_updvel(normalVelocityTend)
+            ! normalBaroclinicVelocityNew = (normalBaroclinicVelocity, timeLevel=2)
+            ! normalBaroclinicVelocityCur = (normalBaroclinicVelocity, timeLevel=1)
+            ! ocn_fuperp uses normalBaroclinicVelocityNew
+            call ocn_diag_solve_fuperp(splitFact, gravity, dt, barotropicForcing, &
+                                       normalBaroclinicVelocityCur, normalBaroclinicVelocityNew, normalVelocityNew)
+            call ocn_yakl_fence
+#else
             ! Put f*normalBaroclinicVelocity^{perp} in
             ! normalVelocityNew as a work variable
+            ! in:  (normalBaroclinicVelocity, timeLevel=2)
+            ! out: (normalVelocity, timeLevel=2)
             call ocn_fuperp(statePool, meshPool, 2)
 
             !TODO: look at loop optimizations here
@@ -779,7 +796,8 @@ module ocn_time_integration_split
             !$omp end parallel
 
             deallocate(uTemp)
-
+#endif
+            call mpas_timer_stop('bcl iters on linear Coriolis fuperp')
             call mpas_timer_start("se halo normalBaroclinicVelocity")
             call mpas_dmpar_field_halo_exch(domain, &
                               'normalBaroclinicVelocity', timeLevel=2)

@@ -25,6 +25,10 @@ module ocn_equation_of_state_jm
 
    use mpas_kind_types
    use mpas_pool_routines
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
+   use iso_c_binding
 
    implicit none
    private
@@ -358,6 +362,13 @@ contains
 
       endif
 
+#ifdef USE_YAKL
+      call mpas_timer_start("fortran ocn_eos_density_only")
+      call ocn_eos_density_only(nCells, nVertLevels, p, p2, &
+                        tracerSalt, tracerTemp, density)
+      call mpas_timer_stop("fortran ocn_eos_density_only")
+#else
+
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector collapse(2) &
       !$acc&   present(density, p, p2)
@@ -416,6 +427,7 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+#endif ! USE_YAKL
 
 #ifdef MPAS_OPENACC
       !$acc exit data delete(p, p2)
@@ -531,6 +543,21 @@ contains
       real (kind=RKIND), dimension(:,:), allocatable :: &
          tracerTemp,          &! modified temperature
          tracerSalt            ! modified salinity
+
+      interface
+        subroutine ocn_eos_density_exp(nCells, nVertLevels, p, p2, &
+                        tracerSalt, tracerTemp, density, &
+                        thermalExpansionCoeff, salineContractionCoeff) &
+                        bind(C,name="ocn_eos_density_exp")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nCells, nVertLevels
+            real(kind=RKIND), intent(in), dimension(*) :: p,p2
+            real(kind=RKIND), intent(in), dimension(*) :: tracerSalt,tracerTemp,density
+            real(kind=RKIND), intent(in), dimension(*) :: thermalExpansionCoeff,salineContractionCoeff
+        end subroutine
+      end interface
+
 #ifdef MPAS_OPENACC
       !$acc declare device_resident(tracerTemp, tracerSalt)
 #endif
@@ -660,6 +687,15 @@ contains
 
       endif
 
+#ifdef USE_YAKL
+      call mpas_timer_start("fortran ocn_eos_density_exp")
+      call ocn_eos_density_exp(nCells, nVertLevels, p, p2, &
+                        tracerSalt, tracerTemp, density, &
+                        thermalExpansionCoeff, salineContractionCoeff)
+      call mpas_timer_stop("fortran ocn_eos_density_exp")
+
+#else
+
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector collapse(2)     &
       !$acc&   present(density, p, p2,                &
@@ -770,6 +806,9 @@ contains
 #ifdef MPAS_OPENACC
       !$acc exit data delete(p, p2)
 #endif
+
+#endif ! USE_YAKL
+
       deallocate(p,p2)
       deallocate(tracerTemp, tracerSalt)
 
@@ -830,6 +869,14 @@ contains
 
       type (mpas_pool_type), pointer :: meshPool
 
+      interface
+        subroutine ocn_yakl_eos_jm_init(nCells, nVertLevels) &
+                    bind(C,name="ocn_yakl_eos_jm_init")
+          use iso_c_binding
+          integer(c_int), intent(in), value :: nCells, nVertLevels
+        end subroutine
+      end interface
+
       !-----------------------------------------------------------------
 
       !*** initialize error flag
@@ -848,6 +895,10 @@ contains
       call mpas_pool_get_dimension(meshPool, 'nVertLevels', &
                                               nVertLevelsPtr)
       nVertLevels = nVertLevelsPtr
+
+#ifdef USE_YAKL
+      call ocn_yakl_eos_jm_init(nCells,nVertLevels)      
+#endif
 
       !*** compute reference pressure in bars from depth in meters
       !***  using a mean density derived from depth-dependent global

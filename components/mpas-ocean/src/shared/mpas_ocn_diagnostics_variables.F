@@ -18,6 +18,17 @@
 !
 !-----------------------------------------------------------------------
 
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+
 module ocn_diagnostics_variables
 
    use mpas_derived_types
@@ -25,6 +36,10 @@ module ocn_diagnostics_variables
    use mpas_constants
    use mpas_stream_manager
    use mpas_io_units
+   use ocn_mesh
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    use ocn_config
 
@@ -193,6 +208,30 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:), pointer :: SIvec_w0,SIvec_w1 ,SIvec_wh0,SIvec_wh1,SIvec_y0
    real (kind=RKIND), dimension(:), pointer :: SIvec_z0,SIvec_z1 ,SIvec_zh0,SIvec_zh1
 
+   type(ocn_yakl_type), BIND(C, NAME='c_relativeVorticityCell') :: c_relativeVorticityCell
+   type(ocn_yakl_type), BIND(C, NAME='c_divergence') :: c_divergence
+   type(ocn_yakl_type), BIND(C, NAME='c_kineticEnergyCell') :: c_kineticEnergyCell
+   type(ocn_yakl_type), BIND(C, NAME='c_normalGMBolusVelocity') :: c_normalGMBolusVelocity
+   type(ocn_yakl_type), BIND(C, NAME='c_normalTransportVelocity') :: c_normalTransportVelocity
+   type(ocn_yakl_type), BIND(C, NAME='c_vertGMBolusVelocityTop') :: c_vertGMBolusVelocityTop
+   type(ocn_yakl_type), BIND(C, NAME='c_vertTransportVelocityTop') :: c_vertTransportVelocityTop
+   type(ocn_yakl_type), BIND(C, NAME='c_vertVelocityTop') :: c_vertVelocityTop
+   type(ocn_yakl_type), BIND(C, NAME='c_tangentialVelocity') :: c_tangentialVelocity
+   type(ocn_yakl_type), BIND(C, NAME='c_normRelVortEdge') :: c_normRelVortEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_normPlanetVortEdge') :: c_normPlanetVortEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_normalizedRelativeVorticityCell') :: c_normalizedRelativeVorticityCell
+   type(ocn_yakl_type), BIND(C, NAME='c_displacedDensity') :: c_displacedDensity
+   type(ocn_yakl_type), BIND(C, NAME='c_density') :: c_density
+   type(ocn_yakl_type), BIND(C, NAME='c_zMid') :: c_zMid
+   type(ocn_yakl_type), BIND(C, NAME='c_zTop') :: c_zTop
+   type(ocn_yakl_type), BIND(C, NAME='c_RiTopOfCell') :: c_RiTopOfCell
+   type(ocn_yakl_type), BIND(C, NAME='c_BruntVaisalaFreqTop') :: c_BruntVaisalaFreqTop
+   type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
+   type(ocn_yakl_type), BIND(C, NAME='c_montgomeryPotential') :: c_montgomeryPotential
+   type(ocn_yakl_type), BIND(C, NAME='c_pressure') :: c_pressure
+   type(ocn_yakl_type), BIND(C, NAME='c_surfacePressure') :: c_surfacePressure
+   type(ocn_yakl_type), BIND(C, NAME='c_barotropicForcing') :: c_barotropicForcing
+
    !--------------------------------------------------------------------
    !
    ! Public member functions
@@ -227,6 +266,15 @@ contains
       integer, intent(out) :: err !< Output: Error flag
 
       type (mpas_pool_type), pointer :: diagnosticsPool
+      
+      interface
+          subroutine ocn_diagnostics_yakl_init(nCells, nEdges, nVerticesAll, nVertLevels) &
+                        bind(C,name="ocn_diagnostics_yakl_init")
+            use iso_c_binding
+            integer(c_int), intent(in), value :: nCells, nEdges, nVerticesAll, &
+                                                 nVertLevels
+          end subroutine
+      end interface
 
       err = 0
 
@@ -807,6 +855,32 @@ contains
          !$acc                   barotropicCoriolisTerm &
          !$acc                   )
       end if
+
+#ifdef USE_YAKL
+      C_DECOMP(relativeVorticityCell)
+      C_DECOMP(barotropicForcing)
+      C_DECOMP(divergence)
+      C_DECOMP(kineticEnergyCell)
+      C_DECOMP(normalGMBolusVelocity)
+      C_DECOMP(normalTransportVelocity)
+      C_DECOMP(vertTransportVelocityTop)
+      C_DECOMP(vertGMBolusVelocityTop)
+      C_DECOMP(vertVelocityTop)
+      C_DECOMP(tangentialVelocity)
+      C_DECOMP(normRelVortEdge)
+      C_DECOMP(normPlanetVortEdge)
+      C_DECOMP(normalizedRelativeVorticityCell)
+      C_DECOMP(displacedDensity)
+      C_DECOMP(density)
+      C_DECOMP(zMid)
+      C_DECOMP(zTop)
+      C_DECOMP(RiTopOfCell)
+      C_DECOMP(BruntVaisalaFreqTop)
+      C_DECOMP(edgeAreaFractionOfCell)
+      C_DECOMP(montgomeryPotential)
+      C_DECOMP(pressure)
+      C_DECOMP(surfacePressure)
+#endif
 
       !$acc enter data create(                                         &
       !$acc                   zMid,                                    &

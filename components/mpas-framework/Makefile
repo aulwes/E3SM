@@ -510,7 +510,263 @@ llvm:
 	"DEBUG = $(DEBUG)" \
 	"USE_PAPI = $(USE_PAPI)" \
 	"OPENMP = $(OPENMP)" \
-	"USE_SHTNS = $(USE_SHTNS)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+llvm-offload:
+	( $(MAKE) all \
+	"FC_PARALLEL = mpifort" \
+	"CC_PARALLEL = mpicc" \
+	"CXX_PARALLEL = mpic++" \
+	"FC_SERIAL = flang" \
+	"CC_SERIAL = clang" \
+	"CXX_SERIAL = clang++" \
+	"FFLAGS_PROMOTION = -r8" \
+	"FFLAGS_OPT = -O3 -g -Mbyteswapio -Mfreeform --rocm-path=${ROCM_PATH} " \
+	"CFLAGS_OPT = -O3 -g --rocm-path=${ROCM_PATH} " \
+	"CXXFLAGS_OPT = -O3 -g --rocm-path=${ROCM_PATH} " \
+	"LDFLAGS_OPT = -O3 -g" \
+	"FFLAGS_GPU = -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906" \
+	"LDFLAGS_GPU = -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx906 " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+spock-cray:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"FFLAGS_PROMOTION = -default64" \
+	"FFLAGS_OPT = -craype-verbose -s integer32 -O3 -f free -N 255 -em -ef" \
+	"CFLAGS_OPT = -O3" \
+	"LDFLAGS_OPT = -O3 -craype-verbose" \
+	"FFLAGS_OMP = " \
+	"CFLAGS_OMP = " \
+	"FFLAGS_GPU = -homp -fopenmp" \
+	"CFLAGS_GPU = -homp -fopenmp" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+spock-amd-offload:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = flang" \
+	"CC_SERIAL = clang" \
+	"CXX_SERIAL = clang++" \
+	"FFLAGS_PROMOTION = -r8" \
+	"FFLAGS_OPT = -O3 -g -Mbyteswapio -Mfreeform -em -ef " \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g  " \
+	"LDFLAGS_OPT = -O3 -g" \
+	"FFLAGS_GPU = -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx908" \
+	"LDFLAGS_GPU = -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx908 " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+amd-yakl:
+	( $(MAKE) all \
+	"FC_PARALLEL = mpif90" \
+	"CC_PARALLEL = mpicc" \
+	"CXX_PARALLEL = mpic++" \
+	"FC_SERIAL = flang" \
+	"CC_SERIAL = clang" \
+	"CXX_SERIAL = hipcc" \
+	"FFLAGS_PROMOTION = -r8" \
+	"FFLAGS_OPT = -O3 -g -Mbyteswapio -Mfreeform -em -ef " \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX908__=1 --rocm-path=${ROCM_PATH} -I${ROCM_PATH}/include --offload-arch=gfx908 -x hip -I./YAKL" \
+	"LDFLAGS_OPT = -O3 -g -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
+	"FFLAGS_GPU = -fopenmp -I./YAKL" \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"YAKL_CXXFLAGS = -I${ROCM_PATH}/hip/include" \
+	"YAKL_ARCH = HIP" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"USE_YAKL = $(USE_YAKL)" \
+	"AR = llvm-ar" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+DYCORE_OBJ := `find src/core_ocean/YAKL/build-CUDA -type f -name "*.o"`
+foo:
+	@echo $(DYCORE_OBJ)
+    
+#"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_CUDA -DTHRUST_IGNORE_CUB_VERSION_CHECK -x cu -DYAKL_CUDA_FLAGS='-arch sm_70 --use_fast_math' -arch sm_70 --expt-extended-lambda --expt-relaxed-constexpr -Wno-deprecated-gpu-targets --use_fast_math -I../YAKL -I../YAKL/cub" 
+#	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_CUDA -DTHRUST_IGNORE_CUB_VERSION_CHECK -x cu -gpu=cc70 -I../YAKL -I../YAKL/cub -I${CUDA_HOME}/include"
+nvidia-yakl:
+	( $(MAKE) all \
+	"FC_PARALLEL = mpif90" \
+	"CC_PARALLEL = mpicc" \
+	"CXX_PARALLEL = mpic++" \
+	"FC_SERIAL = nvfortran" \
+	"CC_SERIAL = nvcc" \
+	"CXX_SERIAL = nvcc" \
+	"FFLAGS_PROMOTION = -r8" \
+	"FFLAGS_OPT = -g -O3 -m64 -Wall " \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_CUDA -DTHRUST_IGNORE_CUB_VERSION_CHECK -x cu -DYAKL_CUDA_FLAGS='-arch sm_70 --use_fast_math' -arch sm_70 --expt-extended-lambda --expt-relaxed-constexpr -Wno-deprecated-gpu-targets --use_fast_math -I../YAKL -I../YAKL/cub" \
+	"LDFLAGS_OPT = -O3 -g -lstdc++ -L${CUDA_PATH}/lib64 -lcudart -lcudanvhpc" \
+	"FFLAGS_GPU = -fopenmp -I./YAKL" \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"YAKL_CXXFLAGS = -DYAKL_CUDA_FLAGS='-arch sm_70 --expt-extended-lambda --expt-relaxed-constexpr -Wno-deprecated-gpu-targets --use_fast_math -I${CUDA_HOME}/include'" \
+	"YAKL_ARCH = CUDA" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+    "USE_YAKL = $(USE_YAKL)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+
+spock-cray-yakl:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"CXX_SERIAL = hipcc" \
+	"FFLAGS_PROMOTION = -s default64" \
+	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX908__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx908 -x hip -I./YAKL" \
+	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
+	"FFLAGS_GPU = -fopenmp -I./YAKL" \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"USE_YAKL = $(USE_YAKL)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+crusher-cray-yakl:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"CXX_SERIAL = hipcc" \
+	"FFLAGS_PROMOTION = -s default64" \
+	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -I./YAKL" \
+	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
+	"FFLAGS_GPU = -fopenmp -I./YAKL" \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"USE_YAKL = $(USE_YAKL)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+spock-cray-offload:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"CXX_SERIAL = CC" \
+	"FFLAGS_PROMOTION = -s default64" \
+	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef " \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g  " \
+	"LDFLAGS_OPT = -O3 -g -craype-verbose" \
+	"FFLAGS_GPU = -fopenmp " \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"CFLAGS_DEBUG = -O0 -g -Weverything" \
+	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
+	"LDFLAGS_DEBUG = -O0 -g" \
+	"FFLAGS_OMP = -fopenmp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    "USE_SHTNS = $(USE_SHTNS)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
 	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
 CPPINCLUDES =
@@ -702,6 +958,12 @@ ifeq "$(OPENACC)" "true"
         LDFLAGS += $(FFLAGS_ACC)
 endif #OPENACC IF
 
+ifeq "$(USE_YAKL)" "true"
+        override CPPFLAGS += "-DUSE_YAKL"
+	YAKL_LDFLAGS = -L./core_ocean/YAKL/build-$(YAKL_ARCH) -lyakl
+        #override CPPFLAGS += "-DMEMORY_DEBUG"
+endif
+
 ifeq "$(OPENMP_OFFLOAD)" "true"
 	FFLAGS += $(FFLAGS_GPU)
 	CFLAGS += $(FFLAGS_GPU)
@@ -761,7 +1023,8 @@ endif
 ifeq "$(TIMER_LIB)" "gptl"
 	override CPPFLAGS += -DMPAS_GPTL_TIMERS
 	override FCINCLUDES += -I${GPTL}/include
-	override LIBS += -L${GPTL}/lib -lgptl
+	override CXXFLAGS += -I${GPTL}/include
+	override LIBS += -L${GPTL}/lib -lgptl -lgptlf
 	TIMER_MESSAGE="GPTL is being used for the timer interface"
 endif
 

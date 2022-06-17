@@ -1,4 +1,4 @@
-.SUFFIXES: .F .o
+.SUFFIXES: .F .cxx .o
 
 OBJS = mpas_ocn_init_routines.o \
 	   mpas_ocn_gm.o \
@@ -56,6 +56,7 @@ OBJS = mpas_ocn_init_routines.o \
 	   mpas_ocn_constants.o \
 	   mpas_ocn_config.o \
 	   mpas_ocn_forcing.o \
+	   mpas_ocn_yakl.o \
 	   mpas_ocn_surface_bulk_forcing.o \
 	   mpas_ocn_surface_land_ice_fluxes.o \
 	   mpas_ocn_effective_density_in_land_ice.o \
@@ -71,6 +72,17 @@ OBJS = mpas_ocn_init_routines.o \
 	   mpas_ocn_transport_tests.o \
 	   mpas_ocn_vel_self_attraction_loading.o 
 
+ifeq "$(USE_YAKL)" "true"
+	OBJS += \
+	   mpas_ocn_diagnostics_yakl_c.o \
+	   mpas_ocn_time_int_split.o \
+	   mpas_ocn_equation_of_state_jm_c.o \
+	   mpas_ocn_tendency_c.o \
+	   mpas_ocn_mesh_c.o \
+	   mpas_ocn_yakl_c.o \
+	   mpas_ocn_tracer_advection_mono_c.o
+endif
+
 all: $(OBJS)
 
 mpas_ocn_init_routines.o: mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_mesh.o mpas_ocn_diagnostics.o mpas_ocn_diagnostics_variables.o mpas_ocn_gm.o mpas_ocn_forcing.o mpas_ocn_surface_land_ice_fluxes.o
@@ -79,11 +91,13 @@ mpas_ocn_tendency.o: mpas_ocn_high_freq_thickness_hmix_del2.o mpas_ocn_tracer_su
 
 mpas_ocn_diagnostics.o: mpas_ocn_thick_ale.o mpas_ocn_equation_of_state.o mpas_ocn_gm.o mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_mesh.o mpas_ocn_diagnostics_variables.o mpas_ocn_surface_land_ice_fluxes.o
 
-mpas_ocn_diagnostics_variables.o: mpas_ocn_config.o
+mpas_ocn_diagnostics_variables.o: mpas_ocn_config.o mpas_ocn_mesh.o
 
-mpas_ocn_mesh.o: mpas_ocn_config.o
+mpas_ocn_mesh.o: mpas_ocn_config.o mpas_ocn_yakl.o
 
-mpas_ocn_thick_ale.o: mpas_ocn_constants.o mpas_ocn_config.o
+mpas_ocn_mesh_c.o: mpas_ocn_mesh_c.hxx mpas_ocn_yakl_c.hxx mpas_ocn_yakl_types.hxx
+
+mpas_ocn_thick_ale.o: mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_mesh.o
 
 mpas_ocn_time_average_coupled.o: mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_tracer_ecosys.o mpas_ocn_tracer_DMS.o mpas_ocn_tracer_MacroMolecules.o mpas_ocn_diagnostics_variables.o
 
@@ -157,6 +171,14 @@ mpas_ocn_equation_of_state.o: mpas_ocn_equation_of_state_jm.o mpas_ocn_equation_
 
 mpas_ocn_equation_of_state_jm.o: mpas_ocn_constants.o mpas_ocn_config.o
 
+mpas_ocn_equation_of_state_jm_c.o: mpas_ocn_yakl_types.hxx
+
+mpas_ocn_diagnostics_yakl_c.o: mpas_ocn_yakl_types.hxx
+
+mpas_ocn_time_int_split.o: mpas_ocn_diagnostics_yakl_c.o
+
+mpas_ocn_tracer_advection_mono_c.o: mpas_ocn_mesh_c.o mpas_ocn_yakl_types.hxx
+
 mpas_ocn_equation_of_state_linear.o: mpas_ocn_constants.o mpas_ocn_config.o
 
 mpas_ocn_equation_of_state_wright.o: mpas_ocn_constants.o mpas_ocn_config.o
@@ -217,8 +239,15 @@ mpas_ocn_vel_pressure_grad.o: mpas_ocn_constants.o
 
 mpas_ocn_vel_tidal_potential.o: mpas_ocn_diagnostics_variables.o
 
+mpas_ocn_yakl.o: mpas_ocn_constants.o mpas_ocn_yakl_c.o
+
+mpas_ocn_yakl_c.o:
+
 clean:
 	$(RM) *.o *.i *.mod *.f90
+
+.cxx.o:
+	$(CXX_SERIAL) $(CPPFLAGS) $(CXXFLAGS) -c $*.cxx $(CPPINCLUDES)
 
 .F.o:
 	$(RM) $@ $*.mod
