@@ -42,6 +42,9 @@ module ocn_forward_mode
    use ocn_diagnostics_variables
    use ocn_test
    use ocn_mesh
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    use ocn_thick_hadv
    use ocn_thick_vadv
@@ -170,6 +173,10 @@ module ocn_forward_mode
       ! Initialize variables needed for all
       !-----------------------------------------------------------------
       ierr = 0
+
+#ifdef USE_YAKL
+      call ocn_init_yakl()
+#endif      
 
       ! Setup ocean config pool
       call ocn_config_init(domain % configs)
@@ -802,6 +809,10 @@ module ocn_forward_mode
       type (domain_type), intent(inout) :: domain
 
       integer :: ierr
+
+#ifdef USE_YAKL
+	  call ocn_finalize_yakl
+#endif
 
       ! destroy the ocean mesh structure
       call ocn_meshDestroy(ierr)

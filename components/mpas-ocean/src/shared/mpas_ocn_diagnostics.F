@@ -648,12 +648,12 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
       implicit none
 
       interface
-          subroutine ocn_diag_solve_layer_thick_center(nEdges, layerThickness, layerThickEdge) &
+          subroutine ocn_diag_solve_layer_thick_center(nEdges, layerThickness, layerThickEdgeMean) &
                         bind(C,name="ocn_diag_solve_layer_thick_center")
             use iso_c_binding
             use mpas_kind_types
             integer(c_int), intent(in), value :: nEdges
-            real(kind=RKIND), intent(in), dimension(*) :: layerThickness, layerThickEdge
+            real(kind=RKIND), intent(in), dimension(*) :: layerThickness, layerThickEdgeMean
           end subroutine
 
           subroutine ocn_diag_solve_layer_thick_upwind(nEdges, normalVelocity, layerThickness, layerThickEdge) &
@@ -698,7 +698,7 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
 
       ! Compute mean layer thickness at edge
 #ifdef USE_YAKL
-        call ocn_diag_solve_layer_thick_center(nEdgesAll, layerThickness, layerThicknessEdge)
+        call ocn_diag_solve_layer_thick_center(nEdgesAll, layerThickness, layerThickEdgeMean)
 #else
 #ifdef MPAS_OPENACC
       !$acc parallel loop &
@@ -758,6 +758,9 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
 
       case (thickEdgeFluxUpwind)
          ! Use upwind thickness as the edge flux value
+#ifdef USE_YAKL
+        call ocn_diag_solve_layer_thick_upwind(nEdgesAll, normalVelocity, layerThickness, layerThickEdgeFlux)
+#else
 
 #ifdef MPAS_OPENACC
          !$acc parallel loop &
@@ -795,6 +798,7 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
          !$omp end do
          !$omp end parallel
 #endif
+#endif ! USE_YAKL
 
       case default
          ! Should have been caught on init
@@ -1652,6 +1656,7 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
 
       real (kind=RKIND), dimension(:), allocatable:: div_hu,div_huTransport,div_huGMBolus
 
+      interface
           subroutine ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, &
                 normalTransportVelocity, vertVelocityTop, vertTransportVelocityTop, &
                 vertGMBolusVelocityTop, relativeVorticityCell, divergence, &

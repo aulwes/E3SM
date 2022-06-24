@@ -110,10 +110,6 @@ module ocn_mesh
    type(c_ptr), BIND(C, NAME='c_minLevelEdgeBot') :: c_minLevelEdgeBot
    type(c_ptr), BIND(C, NAME='c_maxLevelEdgeBot') :: c_maxLevelEdgeBot
    type(c_ptr), BIND(C, NAME='c_maxLevelVertexBot') :: c_maxLevelVertexBot
-   type(c_ptr), BIND(C, NAME='c_nAdvCellsForEdge') :: c_nAdvCellsForEdge
-   type(c_ptr), BIND(C, NAME='c_advCellsForEdge') :: c_advCellsForEdge
-   type(c_ptr), BIND(C, NAME='c_advCoefs') :: c_advCoefs
-   type(c_ptr), BIND(C, NAME='c_advCoefs3rd') :: c_advCoefs3rd
    type(c_ptr), BIND(C, NAME='c_nEdgesOnCell') :: c_nEdgesOnCell
    type(c_ptr), BIND(C, NAME='c_nEdgesOnEdge') :: c_nEdgesOnEdge
    type(c_ptr), BIND(C, NAME='c_edgesOnCell') :: c_edgesOnCell
@@ -122,14 +118,13 @@ module ocn_mesh
    type(c_ptr), BIND(C, NAME='c_cellsOnCell') :: c_cellsOnCell
    type(c_ptr), BIND(C, NAME='c_areaCell') :: c_areaCell
    type(c_ptr), BIND(C, NAME='c_areaTriangle') :: c_areaTriangle
-   type(c_ptr), BIND(C, NAME='c_inverseAreaCell') :: c_inverseAreaCell
-   type(c_ptr), BIND(C, NAME='c_inverseAreaTriangle') :: c_inverseAreaTriangle
+   type(c_ptr), BIND(C, NAME='c_invAreaCell') :: c_invAreaCell
+   type(c_ptr), BIND(C, NAME='c_invAreaTriangle') :: c_invAreaTriangle
    type(c_ptr), BIND(C, NAME='c_dcEdge') :: c_dcEdge
    type(c_ptr), BIND(C, NAME='c_dvEdge') :: c_dvEdge
    type(c_ptr), BIND(C, NAME='c_fVertex') :: c_fVertex
    type(c_ptr), BIND(C, NAME='c_edgeSignOnCell') :: c_edgeSignOnCell
    type(c_ptr), BIND(C, NAME='c_edgeSignOnVertex') :: c_edgeSignOnVertex
-   type(c_ptr), BIND(C, NAME='c_highOrderAdvectionMask') :: c_highOrderAdvectionMask
    type(c_ptr), BIND(C, NAME='c_bottomDepth') :: c_bottomDepth
    type(ocn_yakl_type), BIND(C, NAME='c_kiteAreasOnVertex') :: c_kiteAreasOnVertex
    type(ocn_yakl_type), BIND(C, NAME='c_kiteIndexOnCell') :: c_kiteIndexOnCell
@@ -150,9 +145,6 @@ module ocn_mesh
       cellsOnVertex, &! index of cells connected to each vertex
       edgesOnVertex, &! index of edges connected to each vertex
       kiteIndexOnCell ! index of kite associated with each cell
-
-   real(kind=RKIND), public, dimension(:), allocatable, target :: &
-      inverseAreaTriangle  ! 1.0 / area triangle
 
    real(kind=RKIND), public, dimension(:), pointer :: &
       latCell, &! latitude  of cell centers
@@ -188,6 +180,7 @@ module ocn_mesh
       distanceToCoast ! distance to nearest coast cell 
 
    real(kind=RKIND), public, dimension(:), allocatable :: &
+      invAreaTriangle, &  ! 1.0 / area triangle
       invAreaCell   ! inverse of area of each cell
 
    ! Multiplicative masks and vectors for various conditions
@@ -297,8 +290,7 @@ contains
       integer i, k, n          ! loop indices
       integer mxNEdges, &      ! size of 1st dim in nEdgesOnCell
               mxConC, &        ! size of 1st dim in cellsOnCell
-              esonDim, &       ! size of 1st dim of edgeSignOnVertex
-              advSize          ! size of 1st dim in advCoefs3rd
+              esonDim          ! size of 1st dim of edgeSignOnVertex
       
       integer, dimension(:, :), pointer :: &
          edgeMaskTmp, &
@@ -312,11 +304,11 @@ contains
 
       interface
           subroutine ocn_mesh_yakl_init(nCells, nEdges, nVerticesAll, nVertLevels, &
-                                        mxNEdges, mxConC, advSize, esonDim, vertexDegree) &
+                                        mxNEdges, mxConC, esonDim, vertexDegree) &
                         bind(C,name="ocn_mesh_yakl_init")
             use iso_c_binding
             integer(c_int), intent(in), value :: nCells, nEdges, nVerticesAll, nVertLevels, &
-                                                 mxNEdges, mxConC, advSize, esonDim, vertexDegree
+                                                 mxNEdges, mxConC, esonDim, vertexDegree
           end subroutine
 
           subroutine ocn_diagnostics_yakl_init(nCells, nEdges, nVertices, nVertLevels) &
@@ -572,7 +564,7 @@ contains
                                boundaryCellTmp)
 
       allocate ( &
-            inverseAreaTriangle(size(areaTriangle)), &
+            invAreaTriangle(size(areaTriangle)), &
             edgeMask(nVertLevels, nEdgesAll+1), &
             cellMask(nVertLevels, nCellsAll+1), &
             vertexMask(nVertLevels, nVerticesAll+1), &
@@ -649,7 +641,7 @@ contains
       invAreaCell(nCellsAll+1) = 0.0_RKIND
 
       do n = 1, size(areaTriangle)
-         inverseAreaTriangle(n) = 1.0_RKIND / areaTriangle(n)
+         invAreaTriangle(n) = 1.0_RKIND / areaTriangle(n)
       end do
 
 #ifdef USE_YAKL
@@ -661,26 +653,21 @@ contains
          C_WRAP(minLevelEdgeBot)
          C_WRAP(maxLevelEdgeBot)
          C_WRAP(maxLevelVertexBot)
-         C_WRAP(nAdvCellsForEdge)
          C_WRAP(nEdgesOnCell)
          C_WRAP(nEdgesOnEdge)
          C_WRAP(edgesOnCell)
          C_WRAP(edgesOnVertex)
-         C_WRAP(advCellsForEdge)
          C_WRAP(cellsOnEdge)
          C_WRAP(cellsOnCell)
          C_WRAP(areaCell)
          C_WRAP(areaTriangle)
          C_WRAP(invAreaCell)
-         C_WRAP(inverseAreaTriangle)
+         C_WRAP(invAreaTriangle)
          C_WRAP(dvEdge)
          C_WRAP(dcEdge)
          C_WRAP(fVertex)
          C_WRAP(edgeSignOnCell)
          C_WRAP(edgeSignOnVertex)
-         C_WRAP(highOrderAdvectionMask)
-         C_WRAP(advCoefs)
-         C_WRAP(advCoefs3rd)
          C_WRAP(bottomDepth)
          C_DECOMP(kiteAreasOnVertex)
          C_DECOMP(kiteIndexOnCell)
@@ -693,10 +680,9 @@ contains
 
          mxNEdges = size(edgesOnCell, 1)
          mxConC = size(cellsOnCell,1)
-         advSize = size(advCoefs3rd, 1)
          esonDim = size(edgeSignOnVertex, 1)
          call ocn_mesh_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels,mxNEdges, &
-                                 mxConC, advSize, esonDim, vertexDegree)
+                                 mxConC, esonDim, vertexDegree)
         
          call ocn_diagnostics_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels)
 #endif

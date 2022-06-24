@@ -8,6 +8,13 @@ struct f2c_type
 
 namespace mesh
 {
+
+int nCellsAll,
+    nEdgesAll,
+    nVertices,
+    nVertLevels
+    ;
+    
 d_int_1d_t      * maxLevelCell,
                 * minLevelCell,
                 * minLevelEdgeTop,
@@ -35,8 +42,8 @@ d_int_2d_t      * advCellsForEdge,
 
 d_double_1d_t   * areaCell,
                 * areaTriangle,
-                * inverseAreaCell,
-                * inverseAreaTriangle,
+                * invAreaCell,
+                * invAreaTriangle,
                 * bottomDepth,
                 * fVertex,
                 * fEdge,
@@ -64,28 +71,28 @@ extern "C" int * c_minLevelVertexTop = nullptr;
 extern "C" int * c_maxLevelEdgeBot = nullptr;
 extern "C" int * c_minLevelEdgeBot = nullptr;
 extern "C" int * c_maxLevelVertexBot = nullptr;
-extern "C" int * c_nAdvCellsForEdge = nullptr;
-extern "C" int * c_advCellsForEdge = nullptr;
 extern "C" int * c_cellsOnEdge = nullptr;
 extern "C" int * c_cellsOnCell = nullptr;
 extern "C" int * c_edgesOnCell = nullptr;
 extern "C" int * c_edgesOnVertex = nullptr;
 extern "C" int * c_nEdgesOnEdge = nullptr;
 extern "C" int * c_nEdgesOnCell = nullptr;
-extern "C" double * c_advCoefs = nullptr;
-extern "C" double * c_advCoefs3rd = nullptr;
 extern "C" double * c_fVertex = nullptr;
 extern "C" double * c_dvEdge = nullptr;
 extern "C" double * c_dcEdge = nullptr;
 extern "C" double * c_areaCell = nullptr;
 extern "C" double * c_areaTriangle = nullptr;
-extern "C" double * c_inverseAreaCell = nullptr;
-extern "C" double * c_inverseAreaTriangle = nullptr;
+extern "C" double * c_invAreaCell = nullptr;
+extern "C" double * c_invAreaTriangle = nullptr;
 extern "C" double * c_edgeSignOnCell = nullptr;
 extern "C" double * c_edgeSignOnVertex = nullptr;
 extern "C" double * c_highOrderAdvectionMask = nullptr;
 extern "C" double * c_bottomDepth = nullptr;
 
+extern "C" ocn_yakl_type c_nAdvCellsForEdge;
+extern "C" ocn_yakl_type c_advCellsForEdge;
+extern "C" ocn_yakl_type c_advCoefs;
+extern "C" ocn_yakl_type c_advCoefs3rd;
 extern "C" ocn_yakl_type c_kiteIndexOnCell;
 extern "C" ocn_yakl_type c_kiteAreasOnVertex;
 extern "C" ocn_yakl_type c_verticesOnCell;
@@ -96,12 +103,35 @@ extern "C" ocn_yakl_type c_cellsOnVertex;
 extern "C" ocn_yakl_type c_fEdge;
 
 extern "C"
+void ocn_tracer_advect_yakl_init()
+{
+    nAdvCellsForEdge = yakl_wrap_array("nAdvCellsForEdge", 
+            static_cast<int *>(c_nAdvCellsForEdge.ptr), c_nAdvCellsForEdge.shape[0]);
+    advCellsForEdge = yakl_wrap_array("advCellsForEdge", 
+            static_cast<int *>(c_advCellsForEdge.ptr), c_advCellsForEdge.shape[0],
+            c_advCellsForEdge.shape[1]);
+    advCoefs = yakl_wrap_array("advCoefs", 
+            static_cast<double *>(c_advCoefs.ptr), c_advCoefs.shape[0],
+            c_advCoefs.shape[1]);
+    advCoefs3rd = yakl_wrap_array("advCoefs3rd", 
+            static_cast<double *>(c_advCoefs3rd.ptr), c_advCoefs3rd.shape[0],
+            c_advCoefs3rd.shape[1]);
+}
+
+
+
+extern "C"
 void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLevels, int maxNEdges, 
                         int mxConC, int advSize, int esonDim, int vertexDegree)
 {
     //std::cerr << " nVertices, nVertLevels, nCells, nEdges = " << nVertices << " " << nVertLevels << " " << nCellsAll << " " << nEdgesAll << std::endl;
     //std::cerr << " esonDim = " << esonDim << std::endl;
     //std::cerr << " maxNEdges, mxConC, advSize = " << maxNEdges << " " << mxConC << " " << advSize << std::endl;
+    mesh::nCellsAll = nCellsAll;
+    mesh::nEdgesAll = nEdgesAll;
+    mesh::nVertices = nVertices;
+    mesh::nVertLevels = nVertLevels;
+    
     maxLevelCell = yakl_wrap_array("maxLevelCell", c_maxLevelCell, nCellsAll+1);
     minLevelCell = yakl_wrap_array("minLevelCell", c_minLevelCell, nCellsAll+1);
     bottomDepth = yakl_wrap_array("bottomDepth", c_bottomDepth, nCellsAll+1);
@@ -112,11 +142,6 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     maxLevelEdgeBot = yakl_wrap_array("maxLevelEdgeBot", c_maxLevelEdgeBot, nEdgesAll+1);
     maxLevelVertexBot = yakl_wrap_array("maxLevelVertexBot", c_maxLevelVertexBot, nVertices+1);
     
-    nAdvCellsForEdge = yakl_wrap_array("nAdvCellsForEdge", c_nAdvCellsForEdge, nEdgesAll+1);
-    advCellsForEdge = yakl_wrap_array("advCellsForEdge", c_advCellsForEdge, advSize, nEdgesAll+1);
-    advCoefs = yakl_wrap_array("advCoefs", c_advCoefs, advSize, nEdgesAll+1);
-    advCoefs3rd = yakl_wrap_array("advCoefs3rd", c_advCoefs3rd, advSize, nEdgesAll+1);
-
     auto iptr = static_cast<int *>(c_kiteIndexOnCell.ptr);
     kiteIndexOnCell = yakl_wrap_array("kiteIndexOnCell", iptr,
                             c_kiteIndexOnCell.shape[0], c_kiteIndexOnCell.shape[1]);
@@ -162,8 +187,8 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     highOrderAdvectionMask = yakl_wrap_array("highOrderAdvectionMask", c_highOrderAdvectionMask, nVertLevels, nEdgesAll+1);
     nEdgesOnCell = yakl_wrap_array("nEdgesOnCell", c_nEdgesOnCell, nCellsAll+1);
     nEdgesOnEdge = yakl_wrap_array("nEdgesOnEdge", c_nEdgesOnEdge, nEdgesAll+1);
-    inverseAreaCell = yakl_wrap_array("inverseAreaCell", c_inverseAreaCell, nCellsAll);
-    inverseAreaTriangle = yakl_wrap_array("inverseAreaTriangle", c_inverseAreaTriangle, nVertices);
+    invAreaCell = yakl_wrap_array("invAreaCell", c_invAreaCell, nCellsAll);
+    invAreaTriangle = yakl_wrap_array("invAreaTriangle", c_invAreaTriangle, nVertices);
 }
 
 
@@ -181,10 +206,10 @@ void ocn_mesh_yakl_update()
     yakl_update_device(mesh::edgeSignOnVertex, c_edgeSignOnVertex);
     yakl_update_device(mesh::highOrderAdvectionMask, c_highOrderAdvectionMask);
     yakl_update_device(mesh::maxLevelCell, c_maxLevelCell);
-    yakl_update_device(mesh::nAdvCellsForEdge, c_nAdvCellsForEdge);
-    yakl_update_device(mesh::advCellsForEdge, c_advCellsForEdge);
-    yakl_update_device(mesh::advCoefs, c_advCoefs);
-    yakl_update_device(mesh::advCoefs3rd, c_advCoefs3rd);
+    yakl_update_device(mesh::nAdvCellsForEdge,  static_cast<int *>(c_nAdvCellsForEdge.ptr));
+    yakl_update_device(mesh::advCellsForEdge,  static_cast<int *>(c_advCellsForEdge.ptr));
+    yakl_update_device(mesh::advCoefs, static_cast<double *>(c_advCoefs.ptr));
+    yakl_update_device(mesh::advCoefs3rd,  static_cast<double *>(c_advCoefs3rd.ptr));
     yakl_update_device(mesh::fVertex, c_fVertex);
     yakl_update_device(mesh::kiteAreasOnVertex, static_cast<double *>(c_kiteAreasOnVertex.ptr));
     //yakl_update_device(mesh::kiteIndexOnCell, static_cast<int *>(c_kiteIndexOnCell.ptr));

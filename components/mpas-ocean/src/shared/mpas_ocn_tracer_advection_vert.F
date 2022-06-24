@@ -36,7 +36,7 @@ module ocn_tracer_advection_vert
    real (kind=RKIND) ::  &
       coef3rdOrder        !< high-order coefficient
 
-   integer :: vertOrder   !< choice of order for vertical advection
+   integer, public :: vertOrder   !< choice of order for vertical advection
    integer, parameter :: &! enumerator for supported vertical adv order
       vertOrder2=2,      &!< 2nd order
       vertOrder3=3,      &!< 3rd order

@@ -935,6 +935,7 @@ else # DEBUG IF
 	DEBUG_MESSAGE="Debugging is off."
 endif # DEBUG IF
 
+CXXFLAGS += $(CXXINCLUDES)
 FC=$(FC_PARALLEL)
 CC=$(CC_PARALLEL)
 CXX=$(CXX_PARALLEL)
@@ -960,8 +961,8 @@ endif #OPENACC IF
 
 ifeq "$(USE_YAKL)" "true"
         override CPPFLAGS += "-DUSE_YAKL"
-	YAKL_LDFLAGS = -L./core_ocean/YAKL/build-$(YAKL_ARCH) -lyakl
-        #override CPPFLAGS += "-DMEMORY_DEBUG"
+	#YAKL_LDFLAGS = -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
+	override LIBS += -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
 endif
 
 ifeq "$(OPENMP_OFFLOAD)" "true"
@@ -1061,6 +1062,12 @@ ifeq "$(OPENMP)" "true"
 	OPENMP_MESSAGE="MPAS was built with OpenMP enabled."
 else
 	OPENMP_MESSAGE="MPAS was built without OpenMP support."
+endif
+
+ifeq "$(USE_YAKL)" "true"
+	YAKL_MESSAGE="MPAS was built with YAKL support."
+else
+	YAKL_MESSAGE="MPAS was built without YAKL support."
 endif
 
 ifeq "$(OPENMP_OFFLOAD)" "true"
@@ -1188,13 +1195,15 @@ pio_test:
 	@# See whether either of the test programs can be compiled
 	@#
 	@echo "Checking for a usable PIO library..."
+	@echo $(FC) pio2.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio2.out
 	@($(FC) pio1.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio1.out &> /dev/null && echo "=> PIO 1 detected") || \
-	 ($(FC) pio2.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio2.out &> /dev/null && echo "=> PIO 2 detected") || \
+	 ($(FC) pio2.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio2.out &> pio2.txt && echo "=> PIO 2 detected") || \
 	 (echo "************ ERROR ************"; \
 	  echo "Failed to compile a PIO test program"; \
 	  echo "Please ensure the PIO environment variable is set to the PIO installation directory"; \
 	  echo "************ ERROR ************"; \
-	  rm -rf pio[12].f90 pio[12].out; exit 1)
+	  exit 1)
+	  #rm -rf pio[12].f90 pio[12].out; exit 1)
 
 	@rm -rf pio[12].out
 
@@ -1309,6 +1318,7 @@ endif
 	@echo $(OPENMP_MESSAGE)
 	@echo $(OPENMP_OFFLOAD_MESSAGE)
 	@echo $(OPENACC_MESSAGE)
+	@echo $(YAKL_MESSAGE)
 	@echo $(SHAREDLIB_MESSAGE)
 ifeq "$(AUTOCLEAN)" "true"
 	@echo $(AUTOCLEAN_MESSAGE)

@@ -247,6 +247,7 @@ clean:
 	$(RM) *.o *.i *.mod *.f90
 
 .cxx.o:
+	@echo "CXXFLAGS = $(CXXFLAGS)"
 	$(CXX_SERIAL) $(CPPFLAGS) $(CXXFLAGS) -c $*.cxx $(CPPINCLUDES)
 
 .F.o:

@@ -26,8 +26,6 @@ namespace tracer_mono
 
 yakl::yakl_stream_t     stream = 0;
 
-int     nVertLevels = 0;
-
 double          coef3rdOrder;
 double          eps;
 
@@ -81,7 +79,7 @@ void ocn_advect_mono_cell_init(int nCells)
 {
     YAKL_LOCAL_NS(tracer_mono,highOrderFlx);
     YAKL_LOCAL_NS(tracer_mono,workTend);
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels+1}) ,
     YAKL_LAMBDA(int iCell, int k)
@@ -127,15 +125,15 @@ void ocn_advect_mono_pre(double dt, double * h_hProv, double * h_hProvInv, doubl
     YAKL_LOCAL_NS(mesh, edgesOnCell);
     YAKL_LOCAL_NS(mesh, dvEdge);
     YAKL_LOCAL_NS(mesh, edgeSignOnCell);
-    YAKL_LOCAL_NS(mesh, inverseAreaCell);
+    YAKL_LOCAL_NS(mesh, invAreaCell);
 
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
-    int nCells = inverseAreaCell.extent(0);
+    int nCells = invAreaCell.extent(0);
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
     {
-        double invAreaCell1 = dt * inverseAreaCell(iCell);
+        double invAreaCell1 = dt * invAreaCell(iCell);
         if ( (k >= minLevelCell(iCell)) && (k <= maxLevelCell(iCell)) )
         {
             hProv(k, iCell) = layerThickness(k, iCell);
@@ -204,7 +202,7 @@ void ocn_advect_mono_set_flux(int nCells, int nEdges, double * h_tracerCur, doub
     YAKL_LOCAL_NS(mesh, advCoefs);
     YAKL_LOCAL_NS(mesh, advCoefs3rd);
     YAKL_LOCAL_NS(mesh, dvEdge);
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
     yakl_update_device(tracer_mono::tracerCur, h_tracerCur, tracer_mono::stream);
 
@@ -305,7 +303,7 @@ void ocn_advect_mono_set_flux_inout(int initNCells, int nCells, int nEdges, doub
     YAKL_LOCAL_NS(tracer_mono,tracerMax);
     YAKL_LOCAL_NS(tracer_mono,tracerMin);
 
-    YAKL_LOCAL_NS(mesh, inverseAreaCell);
+    YAKL_LOCAL_NS(mesh, invAreaCell);
     YAKL_LOCAL_NS(mesh, minLevelCell);
     YAKL_LOCAL_NS(mesh, maxLevelCell);
     YAKL_LOCAL_NS(mesh, maxLevelEdgeTop);
@@ -317,7 +315,7 @@ void ocn_advect_mono_set_flux_inout(int initNCells, int nCells, int nEdges, doub
     YAKL_LOCAL_NS(mesh, edgeSignOnCell);
     YAKL_LOCAL_NS(mesh, areaCell);
     YAKL_SCOPE(eps, tracer_mono::eps);
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,initNCells+1},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
@@ -330,7 +328,7 @@ void ocn_advect_mono_set_flux_inout(int initNCells, int nCells, int nEdges, doub
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
-        double invAreaCell1 = inverseAreaCell(iCell);
+        double invAreaCell1 = invAreaCell(iCell);
 
         // Finish computing the low order horizontal fluxes
         // Upwind fluxes are accumulated in workTend
@@ -421,14 +419,14 @@ void ocn_advect_mono_compute_tend(int iTracer, int nCells, double dt,
     YAKL_LOCAL_NS(mesh, cellsOnEdge);
     YAKL_LOCAL_NS(mesh, edgesOnCell);
     YAKL_LOCAL_NS(mesh, edgeSignOnCell);
-    YAKL_LOCAL_NS(mesh, inverseAreaCell);
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_LOCAL_NS(mesh, invAreaCell);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
     auto tslice = tend.slice<2>(COLON, COLON, iTracer);
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell, int k)
     {
-        double invAreaCell1 = inverseAreaCell(iCell);
+        double invAreaCell1 = invAreaCell(iCell);
         
         // Accumulate the scaled high order horizontal tendencies
         for ( int i = 1; i <= nEdgesOnCell(iCell); ++i )
@@ -483,7 +481,7 @@ void ocn_advect_mono_vert_flux(int nCells, int mxlvl, int vertOrder,
     YAKL_LOCAL_NS(mesh, edgeSignOnCell);
     YAKL_LOCAL_NS(mesh, areaCell);
     YAKL_SCOPE(coef3rdOrder, tracer_mono::coef3rdOrder);
-    YAKL_SCOPE(nVertLevels, tracer_mono::nVertLevels);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCells}) ,
     YAKL_LAMBDA(int iCell)
@@ -770,30 +768,29 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
 }
 
 extern "C"
-void ocn_advect_mono_init(int nCells, int nEdges, int h_nVertLevels, double f_coef3rdOrder,
-                            double f_eps)
+void ocn_advect_mono_init(double f_coef3rdOrder, double f_eps)
 {
     using namespace tracer_mono;
+    using namespace mesh;
     
     yakl::streamCreate(&stream);
     
     coef3rdOrder = f_coef3rdOrder;
     eps = f_eps;
-    nVertLevels = h_nVertLevels;
-    hProvInv = yakl_create_real("hProvInv", nVertLevels, nCells);
-    flxIn    = yakl_create_real("flxIn", nVertLevels, nCells+1);
-    flxOut   = yakl_create_real("flxOut", nVertLevels, nCells+1);
-    highOrderFlx = yakl_create_real("highOrderFlx", nVertLevels+1,std::max(nCells,nEdges)+1);
-    hNewInv  = yakl_create_real("hNewInv", nVertLevels, nCells);
-    hProv    = yakl_create_real("hProv", nVertLevels, nCells);
-    lowOrderFlx = yakl_create_real("lowOrderFlx", nVertLevels+1,std::max(nCells,nEdges)+1);
-    tracerCur = yakl_create_real("tracerCur", nVertLevels, nCells+1);
-    tracerMax = yakl_create_real("tracerMax", nVertLevels, nCells);
-    tracerMin = yakl_create_real("tracerMin", nVertLevels, nCells);
-    workTend = yakl_create_real("workTend", nVertLevels, nCells+1);
-    wgtTmp = yakl_create_real("wgtTmp", nVertLevels, nEdges);
-    sgnTmp = yakl_create_real("sgnTmp", nVertLevels, nEdges);
-    normalThicknessFlux = yakl_create_real("normalThicknessFlux", nVertLevels, nEdges+1);
-    w = yakl_create_real("w", nVertLevels+1, nCells+1);
-    layerThickness = yakl_create_real("layerThickness", nVertLevels, nCells);
+    hProvInv = yakl_create_real("hProvInv", nVertLevels, nCellsAll);
+    flxIn    = yakl_create_real("flxIn", nVertLevels, nCellsAll+1);
+    flxOut   = yakl_create_real("flxOut", nVertLevels, nCellsAll+1);
+    highOrderFlx = yakl_create_real("highOrderFlx", nVertLevels+1,std::max(nCellsAll,nEdgesAll)+1);
+    hNewInv  = yakl_create_real("hNewInv", nVertLevels, nCellsAll);
+    hProv    = yakl_create_real("hProv", nVertLevels, nCellsAll);
+    lowOrderFlx = yakl_create_real("lowOrderFlx", nVertLevels+1,std::max(nCellsAll,nEdgesAll)+1);
+    tracerCur = yakl_create_real("tracerCur", nVertLevels, nCellsAll+1);
+    tracerMax = yakl_create_real("tracerMax", nVertLevels, nCellsAll);
+    tracerMin = yakl_create_real("tracerMin", nVertLevels, nCellsAll);
+    workTend = yakl_create_real("workTend", nVertLevels, nCellsAll+1);
+    wgtTmp = yakl_create_real("wgtTmp", nVertLevels, nEdgesAll);
+    sgnTmp = yakl_create_real("sgnTmp", nVertLevels, nEdgesAll);
+    normalThicknessFlux = yakl_create_real("normalThicknessFlux", nVertLevels, nEdgesAll+1);
+    w = yakl_create_real("w", nVertLevels+1, nCellsAll+1);
+    layerThickness = yakl_create_real("layerThickness", nVertLevels, nCellsAll);
 }

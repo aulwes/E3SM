@@ -22,6 +22,8 @@ ifneq "$(EXCLUDE_INIT_MODE)" "true"
 	OCEAN_SHARED_INCLUDES += -I$(PWD)/mode_init
 endif
 
+DYCORE_OBJ := `find . ! -path '*/YAKL/*' -type f -name "*.o"`
+
 all: shared libcvmix analysis_members libBGC libMARBL libgotm libfftw libshtns
 	(cd mode_forward; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)" all )
 	(cd mode_analysis; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)" all )
@@ -32,7 +34,9 @@ endif
 	if [ -e libdycore.a ]; then \
 		($(RM) libdycore.a) \
 	fi
-	ar -ru libdycore.a `find . -type f -name "*.o"`
+	ar -ru libdycore.a $(DYCORE_OBJ)
+
+#	ar -ru libdycore.a `find . -type f -name "*.o"`
 
 core_reg:
 	$(CPP) $(CPPFLAGS) $(CPPLOCALFLAGS) $(CPPINCLUDES) Registry.xml > Registry_processed.xml
@@ -101,6 +105,18 @@ libgotm:
 		(pwd ; echo "Missing mpas-ocean/src/gotm/.git, did you forget to 'git submodule update --init --recursive' ?"; exit 1) \
 	fi
 
+libYAKL:
+	if [ -e YAKL/.git ]; then \
+		(echo "Building YAKL in build-$(YAKL_ARCH)..."); \
+		(cd YAKL; git submodule update --init --recursive; mkdir -p build-$(YAKL_ARCH); \
+		cd build-$(YAKL_ARCH); CXXFLAGS="" FFLAGS="" LDFLAGS="" \
+		cmake -DYAKL_EXTERNAL_GPTL=on -DYAKL_ARCH=$(YAKL_ARCH) $(YAKL_CXXFLAGS) ..; \
+		make -j 8 VERBOSE=ON; cd ../..) \
+	else \
+		(echo "Missing core_ocean/YAKL/.git, did you forget to 'git submodule update --init --recursive' ?"; exit 1) \
+	fi
+
+
 libshtns: libfftw
 	if [ "$(USE_SHTNS)" == "true" ]; then \
 	if [ -e SHTNS/.git ]; then \
@@ -131,7 +147,13 @@ libfftw:
 	fi \
 	fi
 
-shared: libcvmix libBGC libMARBL libgotm libshtns libfftw
+SHARED_LIBS := libcvmix libBGC libMARBL libgotm libshtns libfftw
+ifeq "$(USE_YAKL)" "true"
+  $(warning "adding yakl lib...")
+  SHARED_LIBS += libYAKL
+endif
+
+shared: $(SHARED_LIBS)
 	(cd shared; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)")
 
 analysis_members: libcvmix shared libgotm
@@ -152,7 +174,10 @@ clean:
 	fi
 	if [ -e gotm/.git ]; then \
 		(cd gotm; git clean -dfx) \
-        fi
+    fi
+	if [ -e YAKL/.git ]; then \
+		(cd build-$(YAKL_ARCH); make clean) \
+    fi
 	if [ -e SHTNS/.git ]; then \
 		(cd SHTNS; make clean; rm -f lib/libshtns.a) \
 	fi

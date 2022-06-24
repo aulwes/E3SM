@@ -1,5 +1,5 @@
 ifeq "$(ROOT_DIR)" ""
-	ROOT_DIR=$(shell pwd)/src
+    ROOT_DIR=$(shell pwd)/src
 endif
 EXE_NAME=ocean_model
 NAMELIST_SUFFIX=ocean
@@ -10,6 +10,9 @@ FCINCLUDES += -I$(ROOT_DIR)/cvmix/src/shared
 FCINCLUDES += -I$(ROOT_DIR)/BGC
 FCINCLUDES += -I$(ROOT_DIR)/MARBL/include
 FCINCLUDES += -I$(ROOT_DIR)/gotm/build/modules
+ifneq "$(USE_YAKL)" ""
+    CXXINCLUDES := -I$(ROOT_DIR)/YAKL
+endif
 override CPPFLAGS += -DCORE_OCEAN
 
 report_builds:

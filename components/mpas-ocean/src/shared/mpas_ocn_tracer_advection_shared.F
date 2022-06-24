@@ -18,6 +18,19 @@
 !
 !-----------------------------------------------------------------------
 
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+
+#define C_WRAP(var) CAT(c_,var) = c_loc(var)
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+
 module ocn_tracer_advection_shared
 
    use mpas_kind_types
@@ -29,6 +42,10 @@ module ocn_tracer_advection_shared
 
    use ocn_config
    use ocn_mesh
+   use iso_c_binding
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -51,6 +68,11 @@ module ocn_tracer_advection_shared
       advCoefs,       &! common advection coefficients
       advCoefs3rd,    &! common advection coeffs for high order
       advMaskHighOrder ! mask for high order advection terms
+
+   type(ocn_yakl_type), BIND(C, NAME='c_nAdvCellsForEdge') :: c_nAdvCellsForEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_advCellsForEdge') :: c_advCellsForEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_advCoefs') :: c_advCoefs
+   type(ocn_yakl_type), BIND(C, NAME='c_advCoefs3rd') :: c_advCoefs3rd
 
    !--------------------------------------------------------------------
    ! Public member functions 
@@ -102,6 +124,13 @@ module ocn_tracer_advection_shared
          derivTwo !< 2nd derivative values for polynomial fit to tracers
 
       type (hashtable) :: cell_hash
+
+      interface
+          subroutine ocn_tracer_advect_yakl_init() &
+                        bind(C,name="ocn_tracer_advect_yakl_init")
+            use iso_c_binding
+          end subroutine
+      end interface
 
       ! End preamble
       !-------------
@@ -309,6 +338,13 @@ module ocn_tracer_advection_shared
       ! setting mask to zero.
       if (config_horiz_tracer_adv_order == 2) &
          advMaskHighOrder(:,:) = 0.0_RKIND
+
+#ifdef USE_YAKL
+         C_DECOMP(nAdvCellsForEdge)
+         C_DECOMP(advCellsForEdge)
+         C_DECOMP(advCoefs)
+         C_DECOMP(advCoefs3rd)
+#endif
 
       ! Copy module variables to device
       !$acc enter data copyin(nAdvCellsForEdge, advCellsForEdge, &

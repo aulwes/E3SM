@@ -17,6 +17,16 @@
 !>  time integration scheme
 !
 !-----------------------------------------------------------------------
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_time_integration_split
 
@@ -42,6 +52,10 @@ module ocn_time_integration_split
    use ocn_equation_of_state
    use ocn_vmix
    use ocn_time_average_coupled
+
+   use ocn_effective_density_in_land_ice
+   use ocn_surface_land_ice_fluxes
+   use ocn_transport_tests
 
    use ocn_effective_density_in_land_ice
 #ifdef USE_YAKL
@@ -267,6 +281,37 @@ module ocn_time_integration_split
         frazilSurfacePressure, landIcePressure, landIceDraft
 
       real (kind=RKIND), dimension(:,:,:), pointer :: activeTracersNew
+
+      interface
+          subroutine ocn_timeint_pre_baroclinic(ssh,layerThicknessEdge) &
+                        bind(C,name="ocn_timeint_pre_baroclinic")
+            use iso_c_binding
+            use mpas_kind_types
+            real(c_double), intent(in), dimension(*) :: ssh, &
+                                           layerThicknessEdge
+          end subroutine
+
+          subroutine ocn_timeint_updvel(normalVelocityTend) &
+                        bind(C,name="ocn_timeint_updvel")
+            use iso_c_binding
+            use mpas_kind_types
+            real(c_double), intent(in), dimension(*) :: normalVelocityTend
+          end subroutine
+
+          subroutine ocn_timeint_postfuperp() &
+                        bind(C,name="ocn_timeint_postfuperp")
+          end subroutine
+
+          subroutine ocn_diag_solve_fuperp(splitFact, gravity, dt, barotropicForcing, &
+                                           normalBaroclinicVelocityCur, normalBaroclinicVelocityNew, normalVelocity) &
+                        bind(C,name="ocn_diag_solve_fuperp")
+            use iso_c_binding
+            use mpas_kind_types
+            real(c_double), intent(in), value :: splitFact, gravity, dt
+            real(kind=RKIND), intent(in), dimension(*) :: barotropicForcing, &
+                                           normalBaroclinicVelocityCur, normalBaroclinicVelocityNew, normalVelocity
+          end subroutine
+      end interface
 
       ! These are public variables used from the diagnostics module
       ! indexSurfaceVelocityZonal, indexSurfaceVelocityMeridional
@@ -2668,6 +2713,7 @@ module ocn_time_integration_split
       type (block_type), pointer :: block
 
       type (mpas_pool_type), pointer :: &
+         tendPool,       &! structure holding tendencies
          statePool,      &! structure containing model state
          meshPool,       &! structure containing mesh fields
          tracersPool      ! structure containing tracer fields
@@ -2691,6 +2737,7 @@ module ocn_time_integration_split
          normalBarotropicVelocity ! normal barotropic velocity
 
       real (kind=RKIND), dimension(:,:), pointer :: &
+         normalVelocityTend,      &! normal velocity tendency
          layerThickness,          &! layer thickness cell center
          normalBaroclinicVelocity,&! normal baroclinic velocity
          normalVelocity            ! normal velocity (total)
@@ -2778,6 +2825,16 @@ module ocn_time_integration_split
       numClinicIterations(numTSIterations)=config_n_bcl_iter_end !last
 
       !*** Initialize some variables if not a restart
+      block => domain % blocklist
+      call mpas_pool_get_subpool(block%structs, 'state', statePool)
+      call mpas_pool_get_subpool(block%structs, 'tend', &
+                                                 tendPool)
+      call mpas_pool_get_array(statePool, 'normalBaroclinicVelocity', &
+                                           normalBaroclinicVelocity, 1)
+      call mpas_pool_get_array(tendPool, 'normalVelocity', &
+                                          normalVelocityTend)
+      C_DECOMP(normalBaroclinicVelocity)
+      C_DECOMP(normalVelocityTend)
 
       if (.not. config_do_restart) then
 

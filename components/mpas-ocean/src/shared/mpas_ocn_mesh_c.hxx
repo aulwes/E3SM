@@ -7,6 +7,13 @@
 namespace mesh
 {
 extern
+int nCellsAll,
+    nEdgesAll,
+    nVertices,
+    nVertLevels
+    ;
+
+extern
 d_int_1d_t      * maxLevelCell,
                 * minLevelCell,
                 * minLevelEdgeTop,
@@ -36,8 +43,8 @@ d_int_2d_t      * advCellsForEdge,
 extern
 d_double_1d_t   * areaCell,
                 * areaTriangle,
-                * inverseAreaCell,
-                * inverseAreaTriangle,
+                * invAreaCell,
+                * invAreaTriangle,
                 * bottomDepth,
                 * fVertex,
                 * fEdge,

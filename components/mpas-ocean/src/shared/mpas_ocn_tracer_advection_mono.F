@@ -41,6 +41,9 @@ module ocn_tracer_advection_mono
    save
 
    ! module private variables
+   real (kind=RKIND), parameter :: &
+         eps = 1.e-10_RKIND  ! small number to avoid numerical difficulties
+
    real (kind=RKIND) ::  &
       coef3rdOrder        !< high-order horizontal coefficient
    logical ::            &
@@ -62,10 +65,9 @@ module ocn_tracer_advection_mono
         real(kind=RKIND), intent(in), dimension(*) :: transTend
       end subroutine
 
-      subroutine ocn_advect_mono_init(nCells, nEdges, nVertLevels, coef3rdOrder, eps) &
+      subroutine ocn_advect_mono_init(coef3rdOrder, eps) &
                     bind(C,name="ocn_advect_mono_init")
         use iso_c_binding
-        integer(c_int), intent(in), value :: nCells, nEdges, nVertLevels
         real(c_double), intent(in), value :: coef3rdOrder, eps
       end subroutine
 
@@ -180,6 +182,7 @@ module ocn_tracer_advection_mono
                                         normalThicknessFlux, w, dt,    &
                                         computeBudgets)!{{{
 
+      use ocn_tracer_advection_vert, only: vertOrder
       !-----------------------------------------------------------------
       ! Input/Output parameters
       !-----------------------------------------------------------------
@@ -246,9 +249,6 @@ module ocn_tracer_advection_mono
          workTend,      &! temp for holding some tendency values
          lowOrderFlx,   &! low order flux for FCT
          highOrderFlx    ! high order flux for FCT
-
-      real (kind=RKIND), parameter :: &
-         eps = 1.e-10_RKIND  ! small number to avoid numerical difficulties
 
       integer :: tendSize(3)
       real (kind=RKIND), dimension(:,:,:), allocatable :: transTend
@@ -392,7 +392,7 @@ module ocn_tracer_advection_mono
         ! set nCells to first halo level
         nCells = nCellsHalo(1)
         ! Need all the edges around the 1 halo cells and owned cells
-        nEdges = nEdgesArray( 2 )
+        nEdges = nEdgesHalo( 2 )
 
 #ifdef USE_YAKL
 
@@ -1233,9 +1233,6 @@ module ocn_tracer_advection_mono
       integer, intent(out) :: &
          err                   !< [out] error flag
 
-      integer, pointer :: nVertLevels, nCells, nEdges
-      integer :: mxlvl
-
       ! end of preamble
       !----------------
       ! begin code
@@ -1269,10 +1266,7 @@ module ocn_tracer_advection_mono
       monotonicityCheck = config_check_tracer_monotonicity
 
 #ifdef USE_YAKL
-      call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
-      call mpas_pool_get_dimension(meshPool, 'nCells', nCells)
-      call mpas_pool_get_dimension(meshPool, 'nEdges', nEdges)
-      call ocn_advect_mono_init(nCells, nEdges, nVertLevels, coef3rdOrder,eps)
+      call ocn_advect_mono_init(coef3rdOrder,eps)
 #endif
 
    end subroutine ocn_tracer_advection_mono_init!}}}
