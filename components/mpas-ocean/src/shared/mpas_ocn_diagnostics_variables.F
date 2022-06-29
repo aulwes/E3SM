@@ -267,15 +267,6 @@ contains
 
       type (mpas_pool_type), pointer :: diagnosticsPool
       
-      interface
-          subroutine ocn_diagnostics_yakl_init(nCells, nEdges, nVerticesAll, nVertLevels) &
-                        bind(C,name="ocn_diagnostics_yakl_init")
-            use iso_c_binding
-            integer(c_int), intent(in), value :: nCells, nEdges, nVerticesAll, &
-                                                 nVertLevels
-          end subroutine
-      end interface
-
       err = 0
 
       call mpas_pool_get_subpool(domain % blocklist % structs, 'diagnostics', diagnosticsPool)
@@ -857,6 +848,7 @@ contains
       end if
 
 #ifdef USE_YAKL
+      print *,' linking relativeVorticityCell...'
       C_DECOMP(relativeVorticityCell)
       C_DECOMP(barotropicForcing)
       C_DECOMP(divergence)

@@ -684,7 +684,7 @@ contains
          call ocn_mesh_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels,mxNEdges, &
                                  mxConC, esonDim, vertexDegree)
         
-         call ocn_diagnostics_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels)
+         !call ocn_diagnostics_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels)
 #endif
 
       !-----------------------------------------------------------------

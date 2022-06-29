@@ -132,6 +132,7 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     mesh::nVertices = nVertices;
     mesh::nVertLevels = nVertLevels;
     
+    std::cerr << "  c_maxLevelCell = " << c_maxLevelCell << std::endl;
     maxLevelCell = yakl_wrap_array("maxLevelCell", c_maxLevelCell, nCellsAll+1);
     minLevelCell = yakl_wrap_array("minLevelCell", c_minLevelCell, nCellsAll+1);
     bottomDepth = yakl_wrap_array("bottomDepth", c_bottomDepth, nCellsAll+1);

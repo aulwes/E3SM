@@ -575,7 +575,7 @@ contains
       err = 0
 
 #ifdef USE_YAKL
-call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVorticity)
+    call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVorticity)
 #else
 #ifdef MPAS_OPENACC
       !$acc parallel loop collapse(2) present(circulation, relativeVorticity)
@@ -1041,6 +1041,10 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
             real(kind=RKIND), intent(in), dimension(*) :: normalizedRelativeVorticityEdge
           end subroutine
       end interface
+
+      nVertices = nVerticesHalo( 2 )
+      nEdges = nEdgesHalo( 2 )
+      nCells = nCellsHalo ( 1 )
 
 #ifdef USE_YAKL
       call ocn_diagnostic_solve_vort(nVertices,nEdges,nCells,vertexDegree, &
@@ -3800,6 +3804,29 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
       type(domain_type), intent(in) :: domain
       integer, intent(out) :: err !< Output: Error flag
 
+      ! Local variables
+
+      type(block_type), pointer :: &
+         block                    ! variables in current subblock
+
+      type(mpas_pool_type), pointer :: &
+         meshPool                 ! mesh variables in MPAS pool structure
+
+      integer, pointer :: &! mesh dimensions
+         nCells, &!
+         nEdges, &!
+         nVertices, &!
+         nVertLevels
+
+      interface
+          subroutine ocn_diagnostics_yakl_init(nCells, nEdges, nVertices, nVertLevels) &
+                        bind(C,name="ocn_diagnostics_yakl_init")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nCells, nEdges, nVertices, nVertLevels
+          end subroutine
+      end interface
+
       err = 0
 
       if(config_include_KE_vertex) then
@@ -3840,6 +3867,24 @@ call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVort
 
       call ocn_diagnostics_variables_init(domain, jenkinsOn, &
                                           hollandJenkinsOn, err)
+
+#ifdef USE_YAKL
+      ! Reset to original block
+      block => domain%blocklist
+
+      ! retrieve the mpas mesh pool
+      call mpas_pool_get_subpool(block%structs, 'mesh', meshPool)
+      call mpas_pool_get_dimension(meshPool, 'nCells', &
+                                   nCells)
+      call mpas_pool_get_dimension(meshPool, 'nEdges', &
+                                   nEdges)
+      call mpas_pool_get_dimension(meshPool, 'nVertices', &
+                                   nVertices)
+      call mpas_pool_get_dimension(meshPool, 'nVertLevels', &
+                                   nVertLevels)
+
+      call ocn_diagnostics_yakl_init(nCells, nEdges, nVertices, nVertLevels)
+#endif
 
     end subroutine ocn_diagnostics_init!}}}
 
