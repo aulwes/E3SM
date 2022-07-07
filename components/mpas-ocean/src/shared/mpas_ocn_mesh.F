@@ -133,6 +133,7 @@ module ocn_mesh
    type(ocn_yakl_type), BIND(C, NAME='c_edgesOnEdge') :: c_edgesOnEdge
    type(ocn_yakl_type), BIND(C, NAME='c_verticesOnEdge') :: c_verticesOnEdge
    type(ocn_yakl_type), BIND(C, NAME='c_cellsOnVertex') :: c_cellsOnVertex
+   type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
    type(ocn_yakl_type), BIND(C, NAME='c_fEdge') :: c_fEdge
 
    integer, public, dimension(:, :), pointer :: &
@@ -206,7 +207,7 @@ module ocn_mesh
       coeffs_reconstruct  ! coeffs for reconstructing vectors at cell centers
 
    ! Derived mesh values needed
-   real(kind=RKIND), public, dimension(:, :), allocatable :: &
+   real(kind=RKIND), public, dimension(:, :), pointer :: &
       edgeAreaFractionOfCell
 
    !}}}
@@ -670,6 +671,7 @@ contains
          C_WRAP(edgeSignOnVertex)
          C_WRAP(bottomDepth)
          C_DECOMP(kiteAreasOnVertex)
+         C_DECOMP(edgeAreaFractionOfCell)
          C_DECOMP(kiteIndexOnCell)
          C_DECOMP(verticesOnCell)
          C_DECOMP(weightsOnEdge)
