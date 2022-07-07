@@ -868,7 +868,7 @@ contains
       C_DECOMP(zTop)
       C_DECOMP(RiTopOfCell)
       C_DECOMP(BruntVaisalaFreqTop)
-      C_DECOMP(edgeAreaFractionOfCell)
+      !C_DECOMP(edgeAreaFractionOfCell)
       C_DECOMP(montgomeryPotential)
       C_DECOMP(pressure)
       C_DECOMP(surfacePressure)

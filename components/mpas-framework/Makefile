@@ -717,7 +717,7 @@ crusher-cray-yakl:
 	"FFLAGS_PROMOTION = -s default64" \
 	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
 	"CFLAGS_OPT = -O3 -g " \
-	"CXXFLAGS_OPT = -O3 -g -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -I./YAKL" \
+	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -I./YAKL" \
 	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
 	"FFLAGS_GPU = -fopenmp -I./YAKL" \
 	"LDFLAGS_GPU = -fopenmp " \
@@ -733,8 +733,10 @@ crusher-cray-yakl:
 	"DEBUG = $(DEBUG)" \
 	"USE_PAPI = $(USE_PAPI)" \
 	"OPENMP = $(OPENMP)" \
-    "USE_SHTNS = $(USE_SHTNS)" \
+    	"USE_SHTNS = $(USE_SHTNS)" \
+	"YAKL_CXXFLAGS = '-I${ROCM_PATH}/hip/include -D__HIP_PLATFORM_AMD__'" \
 	"USE_YAKL = $(USE_YAKL)" \
+	"YAKL_ARCH = HIP" \
 	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
 	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
@@ -772,6 +774,13 @@ spock-cray-offload:
 CPPINCLUDES =
 FCINCLUDES =
 LIBS =
+
+#
+# We use *_EXTRA to add when building the executable and don't want these included
+# when building to test PIO.
+#
+LDFLAGS_EXTRA =
+LIBS_EXTRA =
 
 #
 # If user has indicated a PIO2 library, define USE_PIO2 pre-processor macro
@@ -961,8 +970,9 @@ endif #OPENACC IF
 
 ifeq "$(USE_YAKL)" "true"
         override CPPFLAGS += "-DUSE_YAKL"
-	#YAKL_LDFLAGS = -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
-	override LIBS += -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
+	LDFLAGS_EXTRA += -L./src/YAKL/build-$(YAKL_ARCH)
+	LIBS_EXTRA += -lyakl
+	#override LIBS += -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
 endif
 
 ifeq "$(OPENMP_OFFLOAD)" "true"
@@ -1249,7 +1259,10 @@ dycore: $(AUTOCLEAN_DEPS) framework
                  CPPINCLUDES="$(CPPINCLUDES)" \
                  FCINCLUDES="$(FCINCLUDES)" \
                  CORE="$(CORE)"\
-                 AUTOCLEAN="$(AUTOCLEAN)" \
+                 YAKL_ARCH="$(YAKL_ARCH)" \
+ 		 YAKL_LDFLAGS="$(YAKL_LDFLAGS)" \
+ 		 YAKL_CXXFLAGS="$(YAKL_CXXFLAGS)" \
+                AUTOCLEAN="$(AUTOCLEAN)" \
                  GEN_F90="$(GEN_F90)" )
 
 
@@ -1277,7 +1290,7 @@ drver:  $(AUTOCLEAN_DEPS) framework dycore
 
 
 mpas: $(AUTOCLEAN_DEPS) framework dycore drver
-	$(LINKER) $(LDFLAGS) -o $(EXE_NAME) $(FWPATH)/driver/*.o -L$(FWPATH) -Lsrc -ldycore -lops -lframework $(LIBS) -I./external/esmf_time_f90 -L$(FWPATH)/external/esmf_time_f90 -lesmf_time
+	$(LINKER) $(LDFLAGS) $(LDFLAGS_EXTRA) $(YAKL_LDFLAGS) -o $(EXE_NAME) -lyakl $(FWPATH)/driver/*.o -L$(FWPATH) -Lsrc -ldycore -lops -lframework $(LIBS) -I./external/esmf_time_f90 -L$(FWPATH)/external/esmf_time_f90 -lesmf_time $(LIBS_EXTRA)
 
 framework:
 	cd $(FWPATH); $(MAKE) \

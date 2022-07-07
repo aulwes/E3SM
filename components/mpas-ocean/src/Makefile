@@ -34,6 +34,7 @@ endif
 	if [ -e libdycore.a ]; then \
 		($(RM) libdycore.a) \
 	fi
+#	ar -ru libdycore.a `find . -type f -name "*.o"`
 	ar -ru libdycore.a $(DYCORE_OBJ)
 
 #	ar -ru libdycore.a `find . -type f -name "*.o"`
@@ -109,8 +110,8 @@ libYAKL:
 	if [ -e YAKL/.git ]; then \
 		(echo "Building YAKL in build-$(YAKL_ARCH)..."); \
 		(cd YAKL; git submodule update --init --recursive; mkdir -p build-$(YAKL_ARCH); \
-		cd build-$(YAKL_ARCH); CXXFLAGS="" FFLAGS="" LDFLAGS="" \
-		cmake -DYAKL_EXTERNAL_GPTL=on -DYAKL_ARCH=$(YAKL_ARCH) $(YAKL_CXXFLAGS) ..; \
+		cd build-$(YAKL_ARCH); CXX=$(CXX_SERIAL) CXXFLAGS="" FFLAGS="" LDFLAGS="" \
+		cmake -DYAKL_EXTERNAL_GPTL=on -DYAKL_ARCH=$(YAKL_ARCH) -DCMAKE_CXX_FLAGS="$(YAKL_CXXFLAGS)" ..; \
 		make -j 8 VERBOSE=ON; cd ../..) \
 	else \
 		(echo "Missing core_ocean/YAKL/.git, did you forget to 'git submodule update --init --recursive' ?"; exit 1) \
@@ -149,7 +150,7 @@ libfftw:
 
 SHARED_LIBS := libcvmix libBGC libMARBL libgotm libshtns libfftw
 ifeq "$(USE_YAKL)" "true"
-  $(warning "adding yakl lib...")
+  $(warning "building yakl lib in build-$(YAKL_ARCH)...")
   SHARED_LIBS += libYAKL
 endif
 

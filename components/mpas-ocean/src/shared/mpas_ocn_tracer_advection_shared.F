@@ -58,13 +58,13 @@ module ocn_tracer_advection_shared
    integer, public :: &
       nAdvCellsMax     ! largest number of advection cells for any edge
 
-   integer, public, dimension(:), allocatable :: &
+   integer, public, dimension(:), pointer :: &
       nAdvCellsForEdge ! number of cells contrib to advection at edge
 
-   integer, public, dimension(:,:), allocatable :: &
+   integer, public, dimension(:,:), pointer :: &
       advCellsForEdge ! index of cells contributing to advection at edge
 
-   real (kind=RKIND), public, dimension(:,:), allocatable :: &
+   real (kind=RKIND), public, dimension(:,:), pointer :: &
       advCoefs,       &! common advection coefficients
       advCoefs3rd,    &! common advection coeffs for high order
       advMaskHighOrder ! mask for high order advection terms

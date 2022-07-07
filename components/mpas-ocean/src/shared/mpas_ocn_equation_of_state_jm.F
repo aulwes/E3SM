@@ -142,48 +142,87 @@ module ocn_equation_of_state_jm
       bup2s1t2 =  6.207323e-10_RKIND
 
    real (c_double), bind(C) ::         &
-        uns2t0_c = uns2t0, &
-        unt0_c = unt0, &
-        unt1_c = unt1, &
-        unt2_c = unt2, &
-        unt3_c = unt3, &
-        unt4_c = unt4, &
-        unt5_c = unt5, &
-        unsqt0_c = unsqt0, &
-        unsqt1_c = unsqt1, &
-        unsqt2_c = unsqt2, &
-        uns1t0_c = uns1t0, &
-        uns1t1_c = uns1t1, &
-        uns1t2_c = uns1t2, &
-        uns1t3_c = uns1t3, &
+        uns2t0_c = uns2t0
+   real (c_double), bind(C) ::         &
+        unt0_c = unt0
+   real (c_double), bind(C) ::         &
+        unt1_c = unt1
+   real (c_double), bind(C) ::         &
+        unt2_c = unt2
+   real (c_double), bind(C) ::         &
+        unt3_c = unt3
+   real (c_double), bind(C) ::         &
+        unt4_c = unt4
+   real (c_double), bind(C) ::         &
+        unt5_c = unt5
+   real (c_double), bind(C) ::         &
+        unsqt0_c = unsqt0
+   real (c_double), bind(C) ::         &
+        unsqt1_c = unsqt1
+   real (c_double), bind(C) ::         &
+        unsqt2_c = unsqt2
+   real (c_double), bind(C) ::         &
+        uns1t0_c = uns1t0
+   real (c_double), bind(C) ::         &
+        uns1t1_c = uns1t1
+   real (c_double), bind(C) ::         &
+        uns1t2_c = uns1t2
+   real (c_double), bind(C) ::         &
+        uns1t3_c = uns1t3
+   real (c_double), bind(C) ::         &
         uns1t4_c = uns1t4
 
    real (c_double), bind(C) ::         &
-        bup1s1t0_c = bup1s1t0, &
-        bup1s1t1_c = bup1s1t1, &
-        bup1s1t2_c = bup1s1t2, &
-        bup0s0t0_c = bup0s0t0, &
-        bup0s0t1_c = bup0s0t1, &
-        bup0s0t2_c = bup0s0t2, &
-        bup0s0t3_c = bup0s0t3, &
-        bup0s0t4_c = bup0s0t4, &
-        bup0s1t0_c = bup0s1t0, &
-        bup0s1t1_c = bup0s1t1, &
-        bup0s1t2_c = bup0s1t2, &
-        bup0s1t3_c = bup0s1t3, &
-        bup2s1t0_c = bup2s1t0, &
-        bup2s1t1_c = bup2s1t1, &
-        bup2s1t2_c = bup2s1t2, &
-        bup0sqt0_c = bup0sqt0, &
-        bup0sqt1_c = bup0sqt1, &
-        bup0sqt2_c = bup0sqt2, &
-        bup1sqt0_c = bup1sqt0, &
-        bup1s0t0_c = bup1s0t0, &
-        bup1s0t1_c = bup1s0t1, &
-        bup1s0t2_c = bup1s0t2, &
-        bup1s0t3_c = bup1s0t3, &
-        bup2s0t0_c = bup2s0t0, &
-        bup2s0t1_c = bup2s0t1, &
+        bup1s1t0_c = bup1s1t0
+   real (c_double), bind(C) ::         &
+        bup1s1t1_c = bup1s1t1
+   real (c_double), bind(C) ::         &
+        bup1s1t2_c = bup1s1t2
+   real (c_double), bind(C) ::         &
+        bup0s0t0_c = bup0s0t0
+   real (c_double), bind(C) ::         &
+        bup0s0t1_c = bup0s0t1
+   real (c_double), bind(C) ::         &
+        bup0s0t2_c = bup0s0t2
+   real (c_double), bind(C) ::         &
+        bup0s0t3_c = bup0s0t3
+   real (c_double), bind(C) ::         &
+        bup0s0t4_c = bup0s0t4
+   real (c_double), bind(C) ::         &
+        bup0s1t0_c = bup0s1t0
+   real (c_double), bind(C) ::         &
+        bup0s1t1_c = bup0s1t1
+   real (c_double), bind(C) ::         &
+        bup0s1t2_c = bup0s1t2
+   real (c_double), bind(C) ::         &
+        bup0s1t3_c = bup0s1t3
+   real (c_double), bind(C) ::         &
+        bup2s1t0_c = bup2s1t0
+   real (c_double), bind(C) ::         &
+        bup2s1t1_c = bup2s1t1
+   real (c_double), bind(C) ::         &
+        bup2s1t2_c = bup2s1t2
+   real (c_double), bind(C) ::         &
+        bup0sqt0_c = bup0sqt0
+   real (c_double), bind(C) ::         &
+        bup0sqt1_c = bup0sqt1
+   real (c_double), bind(C) ::         &
+        bup0sqt2_c = bup0sqt2
+   real (c_double), bind(C) ::         &
+        bup1sqt0_c = bup1sqt0
+   real (c_double), bind(C) ::         &
+        bup1s0t0_c = bup1s0t0
+   real (c_double), bind(C) ::         &
+        bup1s0t1_c = bup1s0t1
+   real (c_double), bind(C) ::         &
+        bup1s0t2_c = bup1s0t2
+   real (c_double), bind(C) ::         &
+        bup1s0t3_c = bup1s0t3
+   real (c_double), bind(C) ::         &
+        bup2s0t0_c = bup2s0t0
+   real (c_double), bind(C) ::         &
+        bup2s0t1_c = bup2s0t1
+   real (c_double), bind(C) ::         &
         bup2s0t2_c = bup2s0t2
 
 !***********************************************************************
