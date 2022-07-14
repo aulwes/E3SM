@@ -325,9 +325,6 @@ module ocn_forward_mode
       call mpas_get_timeInterval(xtime_timeType - simulationStartTime_timeType,dt=daysSinceStartOfSim)
       daysSinceStartOfSim = daysSinceStartOfSim*days_per_second
 
-      ! Update any mesh fields that may have been modified during init
-      call ocn_meshUpdateFields(domain)
-
       if (config_conduct_tests) then
          call mpas_timer_start("test suite")
          call ocn_test_suite(domain,ierr)
@@ -469,6 +466,9 @@ module ocn_forward_mode
       ierr = ior(ierr, err_tmp)
       call ocn_tendency_init(err_tmp)
       ierr = ior(ierr,err_tmp)
+
+      ! Update any mesh fields that may have been modified during init
+      call ocn_meshUpdateFields(domain)
 
       if (ierr /= 0) then
          call mpas_log_write( &

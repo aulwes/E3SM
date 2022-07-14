@@ -161,6 +161,12 @@ analysis_members: libcvmix shared libgotm
 	( cd analysis_members; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)" CPPFLAGS="$(CPPFLAGS)" CPPINCLUDES="$(CPPINCLUDES)" all )
 
 clean:
+	(cd mode_forward; $(MAKE) clean)
+	(cd mode_analysis; $(MAKE) clean)
+	(cd mode_init; $(MAKE) clean)
+	(cd driver; $(MAKE) clean)
+	(cd analysis_members; $(MAKE) clean)
+	(cd shared; $(MAKE) clean)
 	if [ -e cvmix/.git ]; then \
 		(cd cvmix/src/shared; make clean) \
 	fi
@@ -185,11 +191,5 @@ clean:
 	if [ -e FFTW/.git ]; then \
 		(cd FFTW; make clean; rm -f $(SHTNS_DIR)/lib/libfftw3*) \
 	fi
-	(cd mode_forward; $(MAKE) clean)
-	(cd mode_analysis; $(MAKE) clean)
-	(cd mode_init; $(MAKE) clean)
-	(cd driver; $(MAKE) clean)
-	(cd analysis_members; $(MAKE) clean)
-	(cd shared; $(MAKE) clean)
 	($(RM) *.mod libdycore.a Registry_processed.xml)
 	$(RM) -r default_inputs

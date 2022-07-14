@@ -105,6 +105,7 @@ extern "C" ocn_yakl_type c_fEdge;
 extern "C"
 void ocn_tracer_advect_yakl_init()
 {
+    std::cerr << " wrapping nAdvCellsForEdge with size " << c_nAdvCellsForEdge.shape[0] << std::endl;
     nAdvCellsForEdge = yakl_wrap_array("nAdvCellsForEdge", 
             static_cast<int *>(c_nAdvCellsForEdge.ptr), c_nAdvCellsForEdge.shape[0]);
     advCellsForEdge = yakl_wrap_array("advCellsForEdge", 
@@ -122,7 +123,7 @@ void ocn_tracer_advect_yakl_init()
 
 extern "C"
 void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLevels, int maxNEdges, 
-                        int mxConC, int advSize, int esonDim, int vertexDegree)
+                        int mxConC, int esonDim, int vertexDegree)
 {
     //std::cerr << " nVertices, nVertLevels, nCells, nEdges = " << nVertices << " " << nVertLevels << " " << nCellsAll << " " << nEdgesAll << std::endl;
     //std::cerr << " esonDim = " << esonDim << std::endl;
@@ -132,7 +133,7 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     mesh::nVertices = nVertices;
     mesh::nVertLevels = nVertLevels;
     
-    std::cerr << "  c_maxLevelCell = " << c_maxLevelCell << std::endl;
+    std::cerr << "  vertexDegree,nVertices = " << vertexDegree << " " << nVertices << std::endl;
     maxLevelCell = yakl_wrap_array("maxLevelCell", c_maxLevelCell, nCellsAll+1);
     minLevelCell = yakl_wrap_array("minLevelCell", c_minLevelCell, nCellsAll+1);
     bottomDepth = yakl_wrap_array("bottomDepth", c_bottomDepth, nCellsAll+1);
@@ -207,6 +208,8 @@ void ocn_mesh_yakl_update()
     yakl_update_device(mesh::edgeSignOnVertex, c_edgeSignOnVertex);
     yakl_update_device(mesh::highOrderAdvectionMask, c_highOrderAdvectionMask);
     yakl_update_device(mesh::maxLevelCell, c_maxLevelCell);
+    if ( nullptr == static_cast<int *>(c_nAdvCellsForEdge.ptr) )
+        std::cerr << " Error: c_nAdvCellsForEdge is null" << std::endl;
     yakl_update_device(mesh::nAdvCellsForEdge,  static_cast<int *>(c_nAdvCellsForEdge.ptr));
     yakl_update_device(mesh::advCellsForEdge,  static_cast<int *>(c_advCellsForEdge.ptr));
     yakl_update_device(mesh::advCoefs, static_cast<double *>(c_advCoefs.ptr));

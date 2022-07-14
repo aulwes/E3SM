@@ -344,6 +344,8 @@ module ocn_tracer_advection_shared
          C_DECOMP(advCellsForEdge)
          C_DECOMP(advCoefs)
          C_DECOMP(advCoefs3rd)
+         
+         call ocn_tracer_advect_yakl_init()
 #endif
 
       ! Copy module variables to device

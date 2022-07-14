@@ -65,7 +65,7 @@ extern "C"
 void init_yakl()
 {
 #ifdef MPAS_GPTL_TIMERS
-    GPTLinitialize();
+    //GPTLinitialize();
 #endif
     yakl::init();
 }

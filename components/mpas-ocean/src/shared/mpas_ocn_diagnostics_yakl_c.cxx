@@ -5,7 +5,7 @@
 #include "mpas_ocn_yakl_types.hxx"
 
 #define GET_DPTR(v) (static_cast<double *>((diag_solve::c_##v).ptr))
-#define DEBUG 1
+#define DEBUG 0
 
 namespace diag_solve
 {
