@@ -1290,7 +1290,7 @@ drver:  $(AUTOCLEAN_DEPS) framework dycore
 
 
 mpas: $(AUTOCLEAN_DEPS) framework dycore drver
-	$(LINKER) $(LDFLAGS) $(LDFLAGS_EXTRA) $(YAKL_LDFLAGS) -o $(EXE_NAME) -lyakl $(FWPATH)/driver/*.o -L$(FWPATH) -Lsrc -ldycore -lops -lframework $(LIBS) -I./external/esmf_time_f90 -L$(FWPATH)/external/esmf_time_f90 -lesmf_time $(LIBS_EXTRA)
+	$(LINKER) $(LDFLAGS) $(LDFLAGS_EXTRA) $(YAKL_LDFLAGS) -o $(EXE_NAME) $(LIBS_EXTRA) $(FWPATH)/driver/*.o -L$(FWPATH) -Lsrc -ldycore -lops -lframework $(LIBS) -I./external/esmf_time_f90 -L$(FWPATH)/external/esmf_time_f90 -lesmf_time $(LIBS_EXTRA)
 
 framework:
 	cd $(FWPATH); $(MAKE) \

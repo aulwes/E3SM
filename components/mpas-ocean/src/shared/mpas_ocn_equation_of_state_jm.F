@@ -406,6 +406,7 @@ contains
       !*** valid range
 
       ! For OpenACC, these are device resident only
+      !print *,' nVertLevels,nCells = ',nVertLevels,nCells
       allocate(tracerTemp(nVertLevels,nCells), &
                tracerSalt(nVertLevels,nCells))
 

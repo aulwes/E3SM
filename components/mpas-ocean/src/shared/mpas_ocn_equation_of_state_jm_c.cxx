@@ -364,6 +364,7 @@ void ocn_yakl_eos_jm_init(int nCells, int nVertLevels)
     
     p = yakl_create_real("p", nVertLevels);
     p2 = yakl_create_real("p2", nVertLevels);
+    //std::cerr << "ocn_yakl_eos_jm_init: nVertLevels, nCells = " << nVertLevels << " " << nCells << std::endl;
     tracerTemp = yakl_create_real("tracerTemp", nVertLevels, nCells);
     tracerSalt = yakl_create_real("tracerSalt", nVertLevels, nCells);
     density = yakl_create_real("density", nVertLevels, nCells);

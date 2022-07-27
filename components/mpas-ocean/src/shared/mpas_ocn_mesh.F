@@ -102,6 +102,7 @@ module ocn_mesh
       indexToEdgeID, &! global ID of each local edge
       indexToVertexID    ! global ID of each local vertex
 
+#ifdef USE_YAKL
    type(c_ptr), BIND(C, NAME='c_maxLevelCell') :: c_maxLevelCell
    type(c_ptr), BIND(C, NAME='c_minLevelCell') :: c_minLevelCell
    type(c_ptr), BIND(C, NAME='c_minLevelEdgeTop') :: c_minLevelEdgeTop
@@ -135,6 +136,7 @@ module ocn_mesh
    type(ocn_yakl_type), BIND(C, NAME='c_cellsOnVertex') :: c_cellsOnVertex
    type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
    type(ocn_yakl_type), BIND(C, NAME='c_fEdge') :: c_fEdge
+#endif
 
    integer, public, dimension(:, :), pointer :: &
       edgesOnEdge, &! index of edges connected to each edge

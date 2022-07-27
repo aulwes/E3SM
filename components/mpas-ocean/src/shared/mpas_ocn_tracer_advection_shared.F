@@ -69,10 +69,12 @@ module ocn_tracer_advection_shared
       advCoefs3rd,    &! common advection coeffs for high order
       advMaskHighOrder ! mask for high order advection terms
 
+#ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_nAdvCellsForEdge') :: c_nAdvCellsForEdge
    type(ocn_yakl_type), BIND(C, NAME='c_advCellsForEdge') :: c_advCellsForEdge
    type(ocn_yakl_type), BIND(C, NAME='c_advCoefs') :: c_advCoefs
    type(ocn_yakl_type), BIND(C, NAME='c_advCoefs3rd') :: c_advCoefs3rd
+#endif
 
    !--------------------------------------------------------------------
    ! Public member functions 

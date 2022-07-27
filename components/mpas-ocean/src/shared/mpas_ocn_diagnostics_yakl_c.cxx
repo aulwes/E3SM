@@ -245,8 +245,8 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
         std::cerr << " ocn_diag_solve_circ: loop 2..."  << std::endl;
     }
     yakl_stream_wait(stream2, event1);
-    //yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nVertices},{1,nVertLevels}) ,
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,1},{1,1}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nVertices},{1,nVertLevels}) ,
+    //yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,1},{1,1}) ,
     YAKL_LAMBDA(int iVertex, int k)
     {
          double invAreaTri1 = invAreaTriangle(iVertex);
@@ -256,16 +256,13 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
             
             if ( (k >= minLevelVertexTop(iVertex)) && (k <= maxLevelVertexBot(iVertex)) )
             {
-              //double r_tmp = dcEdge(iEdge) * normalVelocity(k, iEdge);
-              double r_tmp = normalVelocity(k, iEdge);
-              //double r_tmp = normalVelocity(k, iEdge);
-              circulation(k, iVertex) = circulation(k, iVertex) + r_tmp;
-              //circulation(k, iVertex) = circulation(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp;
-              //relativeVorticity(k, iVertex) = relativeVorticity(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp * invAreaTri1;
+              double r_tmp = dcEdge(iEdge) * normalVelocity(k, iEdge);
+              circulation(k, iVertex) = circulation(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp;
+              relativeVorticity(k, iVertex) = relativeVorticity(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp * invAreaTri1;
             }
          }
     }, yakl::defaultVectorSize, stream2);
-    
+
     yakl_update_host(diag_solve::circulation, h_circulation, stream2);
     yakl_update_host(diag_solve::relativeVorticity, h_relativeVorticity, stream2);
     

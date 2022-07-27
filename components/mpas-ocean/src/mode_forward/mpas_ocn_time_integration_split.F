@@ -111,8 +111,10 @@ module ocn_time_integration_split
       splitFact, &! mask for terms in split or unsplit cases
       self_attraction_and_loading_beta
 
+#ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_normalBaroclinicVelocity') :: c_normalBaroclinicVelocity
    type(ocn_yakl_type), BIND(C, NAME='c_normalVelocityTend') :: c_normalVelocityTend
+#endif
 
 !***********************************************************************
 
@@ -2755,6 +2757,13 @@ module ocn_time_integration_split
 
       integer (kind=I8KIND) :: nBtrSubcyclesI8
 
+      interface
+          subroutine ocn_time_int_init() &
+                        bind(C,name="ocn_time_int_init")
+            use iso_c_binding
+          end subroutine
+      end interface
+      
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -2833,8 +2842,10 @@ module ocn_time_integration_split
                                            normalBaroclinicVelocity, 1)
       call mpas_pool_get_array(tendPool, 'normalVelocity', &
                                           normalVelocityTend)
+#ifdef USE_YAKL
       C_DECOMP(normalBaroclinicVelocity)
       C_DECOMP(normalVelocityTend)
+#endif
 
       if (.not. config_do_restart) then
 
@@ -2964,6 +2975,10 @@ module ocn_time_integration_split
       endif
 
       self_attraction_and_loading_beta = config_self_attraction_and_loading_beta
+
+#ifdef USE_YAKL
+      call ocn_time_int_init()
+#endif
 
    end subroutine ocn_time_integration_split_init!}}}
 

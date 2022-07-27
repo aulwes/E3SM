@@ -105,7 +105,6 @@ extern "C" ocn_yakl_type c_fEdge;
 extern "C"
 void ocn_tracer_advect_yakl_init()
 {
-    std::cerr << " wrapping nAdvCellsForEdge with size " << c_nAdvCellsForEdge.shape[0] << std::endl;
     nAdvCellsForEdge = yakl_wrap_array("nAdvCellsForEdge", 
             static_cast<int *>(c_nAdvCellsForEdge.ptr), c_nAdvCellsForEdge.shape[0]);
     advCellsForEdge = yakl_wrap_array("advCellsForEdge", 
@@ -133,7 +132,6 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     mesh::nVertices = nVertices;
     mesh::nVertLevels = nVertLevels;
     
-    std::cerr << "  vertexDegree,nVertices = " << vertexDegree << " " << nVertices << std::endl;
     maxLevelCell = yakl_wrap_array("maxLevelCell", c_maxLevelCell, nCellsAll+1);
     minLevelCell = yakl_wrap_array("minLevelCell", c_minLevelCell, nCellsAll+1);
     bottomDepth = yakl_wrap_array("bottomDepth", c_bottomDepth, nCellsAll+1);

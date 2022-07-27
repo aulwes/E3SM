@@ -408,7 +408,9 @@ contains
                 landIceFraction, landIceMask, timeLevel, indexTemperature, indexSalinity)
       end if
 
+#ifdef USE_YAKL
       call ocn_yakl_fence
+#endif
 
       if ( full_compute ) then
 

@@ -208,6 +208,7 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:), pointer :: SIvec_w0,SIvec_w1 ,SIvec_wh0,SIvec_wh1,SIvec_y0
    real (kind=RKIND), dimension(:), pointer :: SIvec_z0,SIvec_z1 ,SIvec_zh0,SIvec_zh1
 
+#ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_relativeVorticityCell') :: c_relativeVorticityCell
    type(ocn_yakl_type), BIND(C, NAME='c_divergence') :: c_divergence
    type(ocn_yakl_type), BIND(C, NAME='c_kineticEnergyCell') :: c_kineticEnergyCell
@@ -231,6 +232,7 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_pressure') :: c_pressure
    type(ocn_yakl_type), BIND(C, NAME='c_surfacePressure') :: c_surfacePressure
    type(ocn_yakl_type), BIND(C, NAME='c_barotropicForcing') :: c_barotropicForcing
+#endif
 
    !--------------------------------------------------------------------
    !
@@ -848,7 +850,6 @@ contains
       end if
 
 #ifdef USE_YAKL
-      print *,' linking relativeVorticityCell...'
       C_DECOMP(relativeVorticityCell)
       C_DECOMP(barotropicForcing)
       C_DECOMP(divergence)

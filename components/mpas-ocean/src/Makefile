@@ -181,10 +181,7 @@ clean:
 	fi
 	if [ -e gotm/.git ]; then \
 		(cd gotm; git clean -dfx) \
-    fi
-	if [ -e YAKL/.git ]; then \
-		(cd build-$(YAKL_ARCH); make clean) \
-    fi
+    	fi
 	if [ -e SHTNS/.git ]; then \
 		(cd SHTNS; make clean; rm -f lib/libshtns.a) \
 	fi
