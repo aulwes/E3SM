@@ -17,6 +17,7 @@
 !>  diagnostic variables, and other quantities such as vertAleTransportTop.
 !
 !-----------------------------------------------------------------------
+#undef USE_YAKL
 
 module ocn_diagnostics
 

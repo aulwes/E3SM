@@ -15,7 +15,7 @@ d_double_2d_t   * tracerSalt,
                 ;
 }
 
-extern "C" real
+extern "C" double
     rhosfc_c,
     unt0_c,
     unt1_c,
@@ -63,23 +63,45 @@ extern "C" real
     bup2s0t1_c,
     bup2s0t2_c;
 
+extern "C" ocn_yakl_type c_density;
+extern "C" ocn_yakl_type c_tracerSalt;
+extern "C" ocn_yakl_type c_tracerTemp;
+
 extern "C"
-void ocn_eos_density_only(int nCells, int nVertLevels,
+void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
                           double * h_p, double * h_p2,
                           double * h_tracerSalt, double * h_tracerTemp, double * h_density)
 {
     yakl::timer_start("ocn_eos_density_only");
+
+    //if ( 0 == rank )
+      //  std::cerr << " ocn_eos_density_only: tracerSalt extents = " <<
+        //    eos_jm::tracerSalt->extent(0) << " " << eos_jm::tracerSalt->extent(1) << std::endl;
+            
+    if ( (c_density.shape[1] != eos_jm::density->extent(1)) 
+        || (c_density.shape[0]  != eos_jm::density->extent(0)) )
+    {
+        std::cerr << " reallocating..." << std::endl;
+        eos_jm::tracerTemp->deallocate();
+        eos_jm::tracerSalt->deallocate();
+        eos_jm::density->deallocate();
+        eos_jm::tracerTemp = yakl_create_real("tracerTemp", c_tracerTemp.shape[0], c_tracerTemp.shape[1]);
+        eos_jm::tracerSalt = yakl_create_real("tracerSalt", c_tracerSalt.shape[0], c_tracerSalt.shape[1]);
+        eos_jm::density = yakl_create_real("density", c_density.shape[0], c_density.shape[1]);
+        //std::cerr << " ocn_eos_density_only: nCells not expected." << " Got " << nCells
+        //<< " expected " <<  eos_jm::tracerTemp->extent(1) << std::endl;
+    }
+
+    yakl_update_device(eos_jm::p, h_p);
+    yakl_update_device(eos_jm::p2, h_p2);
+    yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
+    yakl_update_device(eos_jm::tracerTemp, h_tracerTemp);
 
     YAKL_LOCAL_NS(eos_jm,p);
     YAKL_LOCAL_NS(eos_jm,p2);
     YAKL_LOCAL_NS(eos_jm,tracerSalt);
     YAKL_LOCAL_NS(eos_jm,tracerTemp);
     YAKL_LOCAL_NS(eos_jm,density);
-
-    yakl_update_device(eos_jm::p, h_p);
-    yakl_update_device(eos_jm::p2, h_p2);
-    yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
-    yakl_update_device(eos_jm::tracerTemp, h_tracerTemp);
 
     YAKL_SCOPE(uns2t0, uns2t0_c);
 
@@ -139,43 +161,40 @@ void ocn_eos_density_only(int nCells, int nVertLevels,
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
-         auto sq  = tracerSalt(k,iCell);
-         auto tq  = tracerTemp(k,iCell);
+         double sq  = tracerSalt(k,iCell);
+         double tq  = tracerTemp(k,iCell);
 
-         auto sqr = sqrt(sq);
-         auto t2  = tq*tq;
+         double sqr = sqrt(sq);
+         double t2  = tq*tq;
 
          ///
          /// first calculate surface (p=0) values from UNESCO eqns.
          ///
+         double work1 =      uns1t0 + uns1t1*tq +
+                     (uns1t2 + (uns1t3*tq + uns1t4*t2))*t2;
+         double work2 = sqr*(unsqt0 + (unsqt1*tq + unsqt2*t2));
 
-         auto work1 =      uns1t0 + uns1t1*tq +
-                     (uns1t2 + uns1t3*tq + uns1t4*t2)*t2;
-         auto work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
-
-         auto rhosfc = unt1*tq + (unt2 + unt3*tq +
-                                    (unt4 + unt5*tq)*t2)*t2
+         double rhosfc = unt1*tq + (unt2 + (unt3*tq + (unt4 + unt5*tq)*t2))*t2
                           + (uns2t0*sq + work1 + work2)*sq;
 
          ///
          /// now calculate bulk modulus at pressure p from
          /// Jackett and McDougall formula
          ///
-
-          auto work3 = bup0s1t0 + bup0s1t1*tq +
+         double work3 = bup0s1t0 + (bup0s1t1*tq +
                 (bup0s1t2 + bup0s1t3*tq)*t2 +
-              p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
-              p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2);
+          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
+          p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2));
 
-         auto work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
-                      bup1sqt0*p(k));
+         double work4 = sqr*(bup0sqt0 + (bup0sqt1*tq + bup0sqt2*t2 +
+                        bup1sqt0*p(k)));
 
-         auto bulkMod = bup0s0t0 + bup0s0t1*tq +
-                  (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 +
-            p(k) *(bup1s0t0 + bup1s0t1*tq +
-                  (bup1s0t2 + bup1s0t3*tq)*t2) +
-            p2(k)*(bup2s0t0 + bup2s0t1*tq + bup2s0t2*t2) +
-                   sq*(work3 + work4);
+         double bulkMod = bup0s0t0 + (bup0s0t1*tq +
+               (bup0s0t2 + (bup0s0t3*tq + bup0s0t4*t2))*t2 +
+         p(k) *(bup1s0t0 + (bup1s0t1*tq +
+               (bup1s0t2 + bup1s0t3*tq)*t2)) +
+         p2(k)*(bup2s0t0 + (bup2s0t1*tq + bup2s0t2*t2)) +
+                sq*(work3 + work4));
 
 
          density(k,iCell) = (unt0 + rhosfc)*bulkMod/
@@ -183,7 +202,7 @@ void ocn_eos_density_only(int nCells, int nVertLevels,
     });
 
     yakl_update_host(eos_jm::density, h_density);
-
+    yakl::fence();
     yakl::timer_stop("ocn_eos_density_only");
 }
 
@@ -193,6 +212,18 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                         double * h_tracerSalt, double * h_tracerTemp, double * h_density,
                         double * h_thermalExpansionCoeff, double * h_salineContractionCoeff)
 {
+    static int cnt = 0;
+    
+    if ( nCells != eos_jm::tracerTemp->extent(1) )
+    {
+        eos_jm::tracerTemp->deallocate();
+        eos_jm::tracerSalt->deallocate();
+        eos_jm::tracerTemp = yakl_create_real("tracerTemp", nVertLevels, nCells);
+        eos_jm::tracerSalt = yakl_create_real("tracerSalt", nVertLevels, nCells);
+        //std::cerr << " ocn_eos_density_exp: nCells not expected." << " Got " << nCells
+        //<< " expected " <<  eos_jm::tracerTemp->extent(1) << std::endl;
+    }
+
     YAKL_LOCAL_NS(eos_jm,p);
     YAKL_LOCAL_NS(eos_jm,p2);
     YAKL_LOCAL_NS(eos_jm,tracerSalt);
@@ -201,6 +232,12 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
     YAKL_LOCAL_NS(eos_jm,thermalExpansionCoeff);
     YAKL_LOCAL_NS(eos_jm,salineContractionCoeff);
 
+    if ( nVertLevels != tracerTemp.extent(0) )
+        std::cerr << " error: nVertLevels not expected" << " Got " << nVertLevels
+        << " expected " <<  eos_jm::tracerTemp->extent(0) << std::endl;
+        
+    //std::cerr << cnt++ << ": ocn_eos_density_exp: updating device..." << std::endl;
+    //yakl::fence();
     yakl_update_device(eos_jm::p, h_p);
     yakl_update_device(eos_jm::p2, h_p2);
     yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
@@ -264,21 +301,21 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
-        real sq  = tracerSalt(k,iCell);
-        real tq  = tracerTemp(k,iCell);
+        auto sq  = tracerSalt(k,iCell);
+        auto tq  = tracerTemp(k,iCell);
 
-        real sqr = std::sqrt(sq);
-        real t2  = tq*tq;
+        auto sqr = std::sqrt(sq);
+        auto t2  = tq*tq;
 
         /***
          *** first calculate surface (p=0) values from UNESCO eqns.
          ***/
 
-        real work1 = uns1t0 + uns1t1*tq +
+        auto work1 = uns1t0 + uns1t1*tq +
                     (uns1t2 + uns1t3*tq + uns1t4*t2)*t2;
-        real work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
+        auto work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
 
-        real rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
+        auto rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
                         + (uns2t0*sq + work1 + work2)*sq;
 
         /***
@@ -286,15 +323,15 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         *** Jackett and McDougall formula
         ***/
 
-        real work3 = bup0s1t0 + bup0s1t1*tq +
+        auto work3 = bup0s1t0 + bup0s1t1*tq +
                (bup0s1t2 + bup0s1t3*tq)*t2 +
          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
          p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2);
 
-        real work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
+        auto work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
                           bup1sqt0*p(k));
 
-        real bulkMod  = bup0s0t0 + bup0s0t1*tq +
+        auto bulkMod  = bup0s0t0 + bup0s0t1*tq +
                   (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 +
             p(k) *(bup1s0t0 + bup1s0t1*tq +
                   (bup1s0t2 + bup1s0t3*tq)*t2) +
@@ -305,7 +342,7 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         *** compute density
         ***/
 
-        real denomk = 1.0/(bulkMod - p(k));
+        auto denomk = 1.0/(bulkMod - p(k));
 
         density(k, iCell) = (unt0 + rhosfc)*bulkMod*denomk;
 
@@ -314,14 +351,14 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         ***  by differentiating above formulae
         ***/
 
-        real drdt0 = unt1 + 2.0*unt2*tq +
+        auto drdt0 = unt1 + 2.0*unt2*tq +
                  (3.0*unt3 + 4.0*unt4*tq +
                                    5.0*unt5*t2)*t2 +
                          (uns1t1 + 2.0*uns1t2*tq +
                (3.0*uns1t3 + 4.0*uns1t4*tq)*t2 +
                           (unsqt1 + 2.0*unsqt2*tq)*sqr )*sq;
 
-        real dkdt  = bup0s0t1 + 2.0*bup0s0t2*tq +
+        auto dkdt  = bup0s0t1 + 2.0*bup0s0t2*tq +
                 (3.0*bup0s0t3 + 4.0*bup0s0t4*tq)*t2 +
                     p(k) *(bup1s0t1 + 2.0*bup1s0t2*tq +
                                       3.0*bup1s0t3*t2) +
@@ -332,10 +369,10 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                    p2(k) *(bup2s1t1 + 2.0*bup2s1t2*tq) +
                            sqr*(bup0sqt1 + 2.0*bup0sqt2*tq));
 
-        real drhodt = (denomk*(drdt0*bulkMod -
+        auto drhodt = (denomk*(drdt0*bulkMod -
                                p(k)*(unt0+rhosfc)*dkdt*denomk));
 
-        real invdens = 1.0 / density(k,iCell);
+        auto invdens = 1.0 / density(k,iCell);
         thermalExpansionCoeff(k,iCell) = -drhodt * invdens;
 
         /***
@@ -343,10 +380,10 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         ***  by differentiating above formulae
         ***/
 
-        real drds0  = 2.0*uns2t0*sq + work1 + 1.5*work2;
-        real dkds   = work3 + 1.5*work4;
+        auto drds0  = 2.0*uns2t0*sq + work1 + 1.5*work2;
+        auto dkds   = work3 + 1.5*work4;
 
-        real drhods = denomk*(drds0*bulkMod -
+        auto drhods = denomk*(drds0*bulkMod -
                               p(k)*(unt0+rhosfc)*dkds*denomk);
 
         salineContractionCoeff(k,iCell) = drhods*invdens;
@@ -355,6 +392,7 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
     yakl_update_host(eos_jm::density, h_density);
     yakl_update_host(eos_jm::salineContractionCoeff, h_salineContractionCoeff);
     yakl_update_host(eos_jm::thermalExpansionCoeff, h_thermalExpansionCoeff);
+    yakl::fence();
 }
 
 extern "C"

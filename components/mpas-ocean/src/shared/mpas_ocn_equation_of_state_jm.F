@@ -20,6 +20,16 @@
 !>  See Jackett and McDougall, JTECH, Vol.12, pp 381-389, April, 1995.
 !
 !-----------------------------------------------------------------------
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_equation_of_state_jm
 
@@ -34,6 +44,12 @@ module ocn_equation_of_state_jm
    implicit none
    private
    save
+
+#ifdef USE_YAKL
+   type(ocn_yakl_type), BIND(C, NAME='c_density')    :: c_density
+   type(ocn_yakl_type), BIND(C, NAME='c_tracerSalt') :: c_tracerSalt
+   type(ocn_yakl_type), BIND(C, NAME='c_tracerTemp') :: c_tracerTemp
+#endif
 
    !--------------------------------------------------------------------
    !
@@ -294,8 +310,7 @@ contains
 
       !-----------------------------------------------------------------
       ! Local variables
-      !-----------------------------------------------------------------
-
+      !-----------------------------------------------------------------      
       integer ::          &
          iCell, k,        &! cell and vertical level loop indices
          kTmp, kRef,      &! indices to determine ref level for pressure
@@ -307,7 +322,8 @@ contains
       real (kind=RKIND), dimension(:), allocatable :: &
          p, p2 ! temporary pressure scalars
 
-      real (kind=RKIND), dimension(:,:), allocatable :: &
+      real (kind=RKIND), dimension(:,:), allocatable, target :: &
+         tmpdens, &
          tracerTemp,          &! modified temperature
          tracerSalt            ! modified salinity
 #ifdef MPAS_OPENACC
@@ -323,13 +339,13 @@ contains
          rhosfc             ! density at the surface
 
       interface
-        subroutine ocn_eos_density_only(nCells, nVertLevels, p, p2, &
-                        tracerSalt, tracerTemp, density) bind(C,name="ocn_eos_density_only")
+        subroutine ocn_eos_density_only(rank, nCells, nVertLevels, p, p2, &
+                        tracerSalt, tracerTemp, dens) bind(C,name="ocn_eos_density_only")
             use iso_c_binding
             use mpas_kind_types
-            integer(c_int), intent(in), value :: nCells, nVertLevels
+            integer(c_int), intent(in), value :: rank, nCells, nVertLevels
             real(kind=RKIND), intent(in), dimension(*) :: p,p2
-            real(kind=RKIND), intent(in), dimension(*) :: tracerSalt,tracerTemp,density
+            real(kind=RKIND), intent(in), dimension(*) :: tracerSalt,tracerTemp,dens
         end subroutine
       end interface
       !-----------------------------------------------------------------
@@ -407,6 +423,7 @@ contains
 
       ! For OpenACC, these are device resident only
       !print *,' nVertLevels,nCells = ',nVertLevels,nCells
+            
       allocate(tracerTemp(nVertLevels,nCells), &
                tracerSalt(nVertLevels,nCells))
 
@@ -458,11 +475,21 @@ contains
 
       endif
 
+      !allocate(tmpdens(size(density,1),size(density,2)))
+      density = 0.0_RKIND
+!#if 0
 #ifdef USE_YAKL
+      C_DECOMP(density)
+      C_DECOMP(tracerSalt)
+      C_DECOMP(tracerTemp)
+
       call mpas_timer_start("fortran ocn_eos_density_only")
-      call ocn_eos_density_only(nCells, nVertLevels, p, p2, &
+      density = 0.0_RKIND
+      !tmpdens = 0.0_RKIND
+      call ocn_eos_density_only(mpas_myrank, nCells, nVertLevels, p, p2, &
                         tracerSalt, tracerTemp, density)
       call mpas_timer_stop("fortran ocn_eos_density_only")
+
 #else
 
 #ifdef MPAS_OPENACC
@@ -486,6 +513,7 @@ contains
          !*** first calculate surface (p=0) values from UNESCO eqns.
          !***
 
+         ! orig
          work1 =      uns1t0 + uns1t1*tq + &
                      (uns1t2 + uns1t3*tq + uns1t4*t2)*t2
          work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2)
@@ -493,11 +521,20 @@ contains
          rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2 &
                           + (uns2t0*sq + work1 + work2)*sq
 
+         ! reorder
+!         work1 =      uns1t0 + uns1t1*tq + &
+!                     (uns1t2 + (uns1t3*tq + uns1t4*t2))*t2
+!         work2 = sqr*(unsqt0 + (unsqt1*tq + unsqt2*t2))
+!
+!         rhosfc = unt1*tq + (unt2 + (unt3*tq + (unt4 + unt5*tq)*t2))*t2 &
+!                          + (uns2t0*sq + work1 + work2)*sq
+
          !***
          !*** now calculate bulk modulus at pressure p from
          !*** Jackett and McDougall formula
          !***
 
+         ! orig
          work3 = bup0s1t0 + bup0s1t1*tq +     &
                 (bup0s1t2 + bup0s1t3*tq)*t2 + &
           p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) + &
@@ -513,12 +550,33 @@ contains
             p2(k)*(bup2s0t0 + bup2s0t1*tq + bup2s0t2*t2) + &
                    sq*(work3 + work4)
 
+         ! reorder
+!         work3 = bup0s1t0 + (bup0s1t1*tq +     &
+!                (bup0s1t2 + bup0s1t3*tq)*t2 + &
+!          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) + &
+!          p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2))
+!
+!         work4 = sqr*(bup0sqt0 + (bup0sqt1*tq + bup0sqt2*t2 + &
+!                      bup1sqt0*p(k)))
+!
+!         bulkMod = bup0s0t0 + (bup0s0t1*tq +                    &
+!                  (bup0s0t2 + (bup0s0t3*tq + bup0s0t4*t2))*t2 + &
+!            p(k) *(bup1s0t0 + (bup1s0t1*tq +                &
+!                  (bup1s0t2 + bup1s0t3*tq)*t2)) +           &
+!            p2(k)*(bup2s0t0 + (bup2s0t1*tq + bup2s0t2*t2)) + &
+!                   sq*(work3 + work4))
+
 
          density(k,iCell) = (unt0 + rhosfc)*bulkMod/ &
                             (bulkMod - p(k))
 
+         !if ( abs(tmpdens(k,iCell) - density(k,iCell)) > 1.0e-12 ) &
+          !  print *,mpas_myrank,": expected ", density(k,iCell), ", but got ",tmpdens(k,iCell), &
+           !     " for k,iCell = ",k,iCell
+
       end do
       end do
+      
 #ifndef MPAS_OPENACC
       !$omp end do
       !$omp end parallel
@@ -530,6 +588,7 @@ contains
 #endif
       deallocate(p,p2)
       deallocate(tracerTemp, tracerSalt)
+      !deallocate(tmpdens)
 
    !--------------------------------------------------------------------
 
@@ -783,7 +842,8 @@ contains
 
       endif
 
-#ifdef USE_YAKL
+#if 0
+!#ifdef USE_YAKL
       call mpas_timer_start("fortran ocn_eos_density_exp")
       call ocn_eos_density_exp(nCells, nVertLevels, p, p2, &
                         tracerSalt, tracerTemp, density, &

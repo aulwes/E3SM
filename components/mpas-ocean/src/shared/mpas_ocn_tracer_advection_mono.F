@@ -17,6 +17,7 @@
 !>  using a Flux Corrected Transport (FCT) algorithm
 !
 !-----------------------------------------------------------------------
+#undef USE_YAKL
 
 module ocn_tracer_advection_mono
 
@@ -688,7 +689,7 @@ module ocn_tracer_advection_mono
         !$acc            minLevelCell, maxLevelCell, areaCell, &
         !$acc            nEdgesOnCell, edgesOnCell, edgeSignOnCell, &
         !$acc            workTend, highOrderFlx, layerThickness, &
-        !$acc            tracerCur, hProvInv, tend) &
+        !$acc            tracerCur, hProvInv, transTend) &
         !$acc    private(i, k, iEdge, invAreaCell1, signedFactor) 
 #else
         !$omp parallel
@@ -718,7 +719,7 @@ module ocn_tracer_advection_mono
                                     layerThickness(k,iCell) &
                                     + dt*workTend(k,iCell)) &
                                  * hProvInv(k,iCell)
-              tend(iTracer,k,iCell) = tend(iTracer,k,iCell) &
+              transTend(k,iCell,iTracer) = transTend(k,iCell,iTracer) &
                                     + workTend(k,iCell)
            end do
 
@@ -1042,7 +1043,7 @@ module ocn_tracer_advection_mono
 #ifdef MPAS_OPENACC
         !$acc parallel loop &
         !$acc    present(minLevelCell, maxLevelCell, highOrderFlx, &
-        !$acc            flxIn, flxOut, workTend, tend) &
+        !$acc            flxIn, flxOut, workTend, transTend) &
         !$acc    private(k, kmin, kmax, flux)
 #else
         !$omp parallel

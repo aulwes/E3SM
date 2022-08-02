@@ -62,7 +62,7 @@ include 'mpif.h'
 #else
    integer, parameter, public :: MPI_COMM_SELF = 0
 #endif
-
+    integer, public :: mpas_myrank
    public :: mpas_dmpar_init
    public :: mpas_dmpar_finalize
    public :: mpas_dmpar_abort
@@ -267,6 +267,7 @@ include 'mpif.h'
       call MPI_Comm_rank(dminfo % comm, mpi_rank, mpi_ierr)
       call MPI_Comm_size(dminfo % comm, mpi_size, mpi_ierr)
 
+      mpas_myrank = mpi_rank
       dminfo % nprocs = mpi_size
       dminfo % my_proc_id = mpi_rank
 

@@ -17,6 +17,9 @@
 !>  time integration scheme
 !
 !-----------------------------------------------------------------------
+
+#undef USE_YAKL
+
 #ifdef __GFORTRAN__
 #define PASTE(a) a
 #define CAT(a,b) PASTE(a)b
