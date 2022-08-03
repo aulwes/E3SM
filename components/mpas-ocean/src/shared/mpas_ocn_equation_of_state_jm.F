@@ -49,6 +49,8 @@ module ocn_equation_of_state_jm
    type(ocn_yakl_type), BIND(C, NAME='c_density')    :: c_density
    type(ocn_yakl_type), BIND(C, NAME='c_tracerSalt') :: c_tracerSalt
    type(ocn_yakl_type), BIND(C, NAME='c_tracerTemp') :: c_tracerTemp
+   type(ocn_yakl_type), BIND(C, NAME='c_thermalExpansionCoeff')  :: c_thermalExpansionCoeff
+   type(ocn_yakl_type), BIND(C, NAME='c_salineContractionCoeff') :: c_salineContractionCoeff
 #endif
 
    !--------------------------------------------------------------------
@@ -695,7 +697,7 @@ contains
       real (kind=RKIND), dimension(:), allocatable :: &
          p, p2 ! temporary pressure scalars
 
-      real (kind=RKIND), dimension(:,:), allocatable :: &
+      real (kind=RKIND), dimension(:,:), allocatable, target :: &
          tracerTemp,          &! modified temperature
          tracerSalt            ! modified salinity
 
@@ -842,8 +844,14 @@ contains
 
       endif
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
+      C_DECOMP(density)
+      C_DECOMP(tracerSalt)
+      C_DECOMP(tracerTemp)
+      C_DECOMP(thermalExpansionCoeff)
+      C_DECOMP(salineContractionCoeff)
+
       call mpas_timer_start("fortran ocn_eos_density_exp")
       call ocn_eos_density_exp(nCells, nVertLevels, p, p2, &
                         tracerSalt, tracerTemp, density, &

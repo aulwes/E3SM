@@ -15,6 +15,7 @@ d_double_2d_t   * tracerSalt,
                 ;
 }
 
+
 extern "C" double
     rhosfc_c,
     unt0_c,
@@ -66,6 +67,32 @@ extern "C" double
 extern "C" ocn_yakl_type c_density;
 extern "C" ocn_yakl_type c_tracerSalt;
 extern "C" ocn_yakl_type c_tracerTemp;
+extern "C" ocn_yakl_type c_thermalExpansionCoeff;
+extern "C" ocn_yakl_type c_salineContractionCoeff;
+
+namespace {
+void check_extents()
+{
+    if ( (c_density.shape[1] != eos_jm::density->extent(1)) 
+        || (c_density.shape[0]  != eos_jm::density->extent(0)) )
+    {
+        //std::cerr << " reallocating..." << std::endl;
+        eos_jm::density->deallocate();
+        eos_jm::density = yakl_create_real("density", c_density.shape[0], c_density.shape[1]);
+    }
+
+    if ( (c_tracerTemp.shape[1] != eos_jm::tracerTemp->extent(1)) 
+        || (c_tracerTemp.shape[0]  != eos_jm::tracerTemp->extent(0)) )
+    {
+        eos_jm::tracerTemp->deallocate();
+        eos_jm::tracerSalt->deallocate();
+        eos_jm::tracerTemp = yakl_create_real("tracerTemp", c_tracerTemp.shape[0], c_tracerTemp.shape[1]);
+        eos_jm::tracerSalt = yakl_create_real("tracerSalt", c_tracerSalt.shape[0], c_tracerSalt.shape[1]);
+    }
+}
+
+}
+
 
 extern "C"
 void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
@@ -73,25 +100,8 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
                           double * h_tracerSalt, double * h_tracerTemp, double * h_density)
 {
     yakl::timer_start("ocn_eos_density_only");
-
-    //if ( 0 == rank )
-      //  std::cerr << " ocn_eos_density_only: tracerSalt extents = " <<
-        //    eos_jm::tracerSalt->extent(0) << " " << eos_jm::tracerSalt->extent(1) << std::endl;
-            
-    if ( (c_density.shape[1] != eos_jm::density->extent(1)) 
-        || (c_density.shape[0]  != eos_jm::density->extent(0)) )
-    {
-        std::cerr << " reallocating..." << std::endl;
-        eos_jm::tracerTemp->deallocate();
-        eos_jm::tracerSalt->deallocate();
-        eos_jm::density->deallocate();
-        eos_jm::tracerTemp = yakl_create_real("tracerTemp", c_tracerTemp.shape[0], c_tracerTemp.shape[1]);
-        eos_jm::tracerSalt = yakl_create_real("tracerSalt", c_tracerSalt.shape[0], c_tracerSalt.shape[1]);
-        eos_jm::density = yakl_create_real("density", c_density.shape[0], c_density.shape[1]);
-        //std::cerr << " ocn_eos_density_only: nCells not expected." << " Got " << nCells
-        //<< " expected " <<  eos_jm::tracerTemp->extent(1) << std::endl;
-    }
-
+    check_extents();
+    
     yakl_update_device(eos_jm::p, h_p);
     yakl_update_device(eos_jm::p2, h_p2);
     yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
@@ -212,17 +222,7 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                         double * h_tracerSalt, double * h_tracerTemp, double * h_density,
                         double * h_thermalExpansionCoeff, double * h_salineContractionCoeff)
 {
-    static int cnt = 0;
-    
-    if ( nCells != eos_jm::tracerTemp->extent(1) )
-    {
-        eos_jm::tracerTemp->deallocate();
-        eos_jm::tracerSalt->deallocate();
-        eos_jm::tracerTemp = yakl_create_real("tracerTemp", nVertLevels, nCells);
-        eos_jm::tracerSalt = yakl_create_real("tracerSalt", nVertLevels, nCells);
-        //std::cerr << " ocn_eos_density_exp: nCells not expected." << " Got " << nCells
-        //<< " expected " <<  eos_jm::tracerTemp->extent(1) << std::endl;
-    }
+    check_extents();
 
     YAKL_LOCAL_NS(eos_jm,p);
     YAKL_LOCAL_NS(eos_jm,p2);
@@ -232,12 +232,6 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
     YAKL_LOCAL_NS(eos_jm,thermalExpansionCoeff);
     YAKL_LOCAL_NS(eos_jm,salineContractionCoeff);
 
-    if ( nVertLevels != tracerTemp.extent(0) )
-        std::cerr << " error: nVertLevels not expected" << " Got " << nVertLevels
-        << " expected " <<  eos_jm::tracerTemp->extent(0) << std::endl;
-        
-    //std::cerr << cnt++ << ": ocn_eos_density_exp: updating device..." << std::endl;
-    //yakl::fence();
     yakl_update_device(eos_jm::p, h_p);
     yakl_update_device(eos_jm::p2, h_p2);
     yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
@@ -313,6 +307,7 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
 
         auto work1 = uns1t0 + uns1t1*tq +
                     (uns1t2 + uns1t3*tq + uns1t4*t2)*t2;
+                    //(uns1t2 + (uns1t3*tq + uns1t4*t2))*t2;
         auto work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
 
         auto rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
@@ -323,20 +318,20 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         *** Jackett and McDougall formula
         ***/
 
-        auto work3 = bup0s1t0 + bup0s1t1*tq +
+        auto work3 = bup0s1t0 + (bup0s1t1*tq +
                (bup0s1t2 + bup0s1t3*tq)*t2 +
          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
-         p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2);
+         p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2));
 
         auto work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
                           bup1sqt0*p(k));
 
-        auto bulkMod  = bup0s0t0 + bup0s0t1*tq +
-                  (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 +
-            p(k) *(bup1s0t0 + bup1s0t1*tq +
-                  (bup1s0t2 + bup1s0t3*tq)*t2) +
-            p2(k)*(bup2s0t0 + bup2s0t1*tq + bup2s0t2*t2) +
-                    sq*(work3 + work4);
+        auto bulkMod  = bup0s0t0 + (bup0s0t1*tq +
+                  (bup0s0t2 + (bup0s0t3*tq + bup0s0t4*t2))*t2 +
+            p(k) *(bup1s0t0 + (bup1s0t1*tq +
+                  (bup1s0t2 + bup1s0t3*tq)*t2)) +
+            p2(k)*(bup2s0t0 + (bup2s0t1*tq + bup2s0t2*t2)) +
+                    sq*(work3 + work4));
 
         /***
         *** compute density

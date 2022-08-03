@@ -717,9 +717,9 @@ crusher-cray-yakl:
 	"FFLAGS_PROMOTION = -s default64" \
 	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
 	"CFLAGS_OPT = -O3 -g " \
-	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip -I./YAKL" \
+	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip" \
 	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
-	"FFLAGS_GPU = -fopenmp -I./YAKL" \
+	"FFLAGS_GPU = -fopenmp" \
 	"LDFLAGS_GPU = -fopenmp " \
 	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
 	"CFLAGS_DEBUG = -O0 -g -Weverything" \
@@ -970,8 +970,8 @@ endif #OPENACC IF
 
 ifeq "$(USE_YAKL)" "true"
         override CPPFLAGS += "-DUSE_YAKL"
-	LDFLAGS_EXTRA += -L./src/YAKL/build-$(YAKL_ARCH)
-	LIBS_EXTRA += -lyakl
+	LDFLAGS_EXTRA += -L./src/YAKL/build-$(YAKL_ARCH) -L${ROCM_PATH}/lib
+	LIBS_EXTRA += -lyakl -lroctx64 -lrocfft
 	#override LIBS += -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
 endif
 

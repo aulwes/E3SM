@@ -238,7 +238,7 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
          // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         circulation(k, iVertex) = 0.0;
         relativeVorticity(k, iVertex) = 0.0;
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
 
     if ( DEBUG) {
         yakl::fence();
@@ -261,7 +261,7 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
               relativeVorticity(k, iVertex) = relativeVorticity(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp * invAreaTri1;
             }
          }
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
 
     yakl_update_host(diag_solve::circulation, h_circulation, stream2);
     yakl_update_host(diag_solve::relativeVorticity, h_relativeVorticity, stream2);
@@ -295,10 +295,10 @@ void ocn_diag_solve_layer_thick_center(int nEdges, double * h_layerThickness,
     {
         // initialize layerThickEdgeMean to avoid divide by zero and NaN problems.
         layerThickEdgeMean(k, iEdge) = -1.0e34;
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nEdges}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges) ,
     YAKL_LAMBDA(int iEdge)
     {
           int cell1 = cellsOnEdge(1,iEdge);
@@ -308,7 +308,7 @@ void ocn_diag_solve_layer_thick_center(int nEdges, double * h_layerThickness,
             // central differenced
             layerThickEdgeMean(k,iEdge) = 0.5 * (layerThickness(k,cell1) + layerThickness(k,cell2));
           }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     
     yakl_update_host(diag_solve::layerThickEdgeMean, h_layerThickEdgeMean, stream1);
     if ( DEBUG ) 
@@ -341,9 +341,9 @@ void ocn_diag_solve_layer_thick_upwind(int nEdges, double * h_normalVelocity, do
     {
         // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         layerThickEdgeFlux(k, iEdge) = -1.0e34;
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nEdges}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges),
     YAKL_LAMBDA(int iEdge)
     {
           int cell1 = cellsOnEdge(1,iEdge);
@@ -364,7 +364,7 @@ void ocn_diag_solve_layer_thick_upwind(int nEdges, double * h_normalVelocity, do
               layerThickEdgeFlux(k,iEdge) = max(layerThickness(k,cell1), layerThickness(k,cell2));
             }
           }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     yakl_update_host(diag_solve::layerThickEdgeFlux, h_layerThickEdgeFlux, stream1);
     if ( DEBUG ) 
@@ -438,7 +438,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
     YAKL_LAMBDA(int iCell,int k)
     {
         relativeVorticityCell(k,iCell) = 0.0;
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     
     if ( DEBUG) {
         yakl::fence();
@@ -449,7 +449,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
     YAKL_LAMBDA(int iEdge,int k)
     {
         tangentialVelocity(k,iEdge) = 0.0;
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
 
 
     if ( DEBUG) {
@@ -469,7 +469,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
              }
             tangentialVelocity(k,iEdge) += tmp;
         }
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
 
     yakl_update_host(diag_solve::tangentialVelocity, h_tangentialVelocity, stream2);
 
@@ -487,7 +487,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
          div_huGMBolus(k, iCell) = 0.0;
          if ( k < minLevelCell(iCell) )
             vertVelocityTop(k, iCell) = 0.0;
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
     
     if ( DEBUG) {
         yakl::fence();
@@ -507,7 +507,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
                                             * relativeVorticity(k, iVertex) * invAreaCell1;
           }
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     yakl_update_host(diag_solve::relativeVorticityCell, h_relativeVorticityCell, stream1);
 
     if ( DEBUG) {
@@ -552,7 +552,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
             // Compute vertical velocity from the horizontal GM Bolus velocity
             div_huGMBolus(k, iCell) = div_huGMBolus(k, iCell) - tdivhug;
     }
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
     yakl_update_host(diag_solve::kineticEnergyCell, h_kineticEnergyCell, stream2);
     yakl_update_host(diag_solve::divergence, h_divergence, stream2);
 
@@ -560,7 +560,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
         yakl::fence();
         std::cerr << " ocn_diagnostic_solve_vort_vel: loop 7..."  << std::endl;
     }
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCellsH}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsH),
     YAKL_LAMBDA(int iCell)
     {
         // Vertical velocity at bottom (maxLevelCell(iCell)+1) is zero, initialized above.
@@ -575,7 +575,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
             vertTransportVelocityTop(k,iCell) = vertTransportVelocityTop(k+1,iCell) - div_huTransport(k,iCell);
             vertGMBolusVelocityTop(k,iCell) = vertGMBolusVelocityTop(k+1,iCell) - div_huGMBolus(k,iCell);
         }
-    }, yakl::defaultVectorSize, stream2);
+    }, yakl::LaunchConfig<>(), stream2);
         
     yakl_update_host(diag_solve::vertVelocityTop, h_vertVelocityTop, stream2);
     yakl_update_host(diag_solve::vertTransportVelocityTop, h_vertTransportVelocityTop, stream2);
@@ -674,7 +674,7 @@ void ocn_diagnostic_solve_vort(int nVerticesH, int nEdgesH, int nCellsH, int ver
                 normalizedPlanetaryVorticityVertex(k,iVertex) = fVertex(iVertex) * layerThicknessVertex;
             }
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     if ( DEBUG ) 
     {
@@ -693,7 +693,7 @@ void ocn_diagnostic_solve_vort(int nVerticesH, int nEdgesH, int nCellsH, int ver
           normalizedPlanetaryVorticityEdge(k, iEdge) = 0.5 * (normalizedPlanetaryVorticityVertex(k, vertex1)
                                                      + normalizedPlanetaryVorticityVertex(k, vertex2));
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     yakl_update_host(diag_solve::normalizedRelativeVorticityEdge, h_normalizedRelativeVorticityEdge);
     yakl_update_host(diag_solve::normalizedPlanetaryVorticityEdge, h_normalizedPlanetaryVorticityEdge);
@@ -718,7 +718,7 @@ void ocn_diagnostic_solve_vort(int nVerticesH, int nEdgesH, int nCellsH, int ver
               + kiteAreasOnVertex(j, iVertex) * normalizedRelativeVorticityVertex(k, iVertex) * invAreaCell1;
           }
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     
     yakl_update_host(diag_solve::normalizedRelativeVorticityCell, h_normalizedRelativeVorticityCell);
 
@@ -764,13 +764,13 @@ void ocn_diagnostic_solve_zcoord(double * h_ssh)
             zMid(k,iCell) = -bottomDepth(iCell) + 0.5*fixed;
             zTop(k,iCell) = -bottomDepth(iCell) + fixed;
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     // Compute zMid, the z-coordinate of the middle of the layer.
     // Compute zTop, the z-coordinate of the top of the layer.
     // Note the negative sign, since bottomDepth is positive
     // and z-coordinates are negative below the surface.
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCells}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells),
     YAKL_LAMBDA(int iCell)
     {
         for ( int k = maxLevelCell(iCell)-1; k >= minLevelCell(iCell); --k )
@@ -783,7 +783,7 @@ void ocn_diagnostic_solve_zcoord(double * h_ssh)
         }
         // copy zTop(1,iCell) into sea-surface height array
         ssh(iCell) = zTop(minLevelCell(iCell),iCell);
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     yakl_update_host(diag_solve::zMid, GET_DPTR(zMid), stream1);
     yakl_update_host(diag_solve::zTop, GET_DPTR(zTop), stream1);
     yakl_update_host(diag_solve::ssh, h_ssh, stream1);
@@ -826,7 +826,7 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
     YAKL_LAMBDA(int iCell,int k)
     {
          RiTopOfCell(k,iCell) = 100.0;
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell,int k)
@@ -843,7 +843,7 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
                     / (zMid(k-1,iCell) - zMid(k,iCell));
             }
          }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     yakl_update_host(diag_solve::BruntVaisalaFreqTop, 
                      h_BruntVaisalaFreqTop, stream1);
@@ -887,14 +887,14 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
              RiTopOfCell(k,iCell) = BruntVaisalaFreqTop(k,iCell) / (shearMean*shearMean + 1.0e-10);
             }
          }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCellsH}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsH),
     YAKL_LAMBDA(int iCell)
     {
         int k = minLevelCell(iCell);
           RiTopOfCell(k,iCell) = RiTopOfCell(k+1,iCell);
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     
     yakl_update_host(diag_solve::RiTopOfCell, h_RiTopOfCell, stream1);
     if ( DEBUG ) 
@@ -931,7 +931,7 @@ void ocn_diagnostic_montgomery()
         for ( int i = 2; i <= k; ++i )
         int k = minLevelCell(iCell);
           RiTopOfCell(k,iCell) = RiTopOfCell(k+1,iCell);
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     if ( DEBUG ) 
     {
         yakl::fence();
@@ -987,7 +987,7 @@ void ocn_diag_pressure(double gravity)
             pressure(k,iCell) = pressure(k,iCell) +
                     coef * (2*tmp + density(k  ,iCell)*layerThickness(k  ,iCell));
           }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     /*
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCells}),

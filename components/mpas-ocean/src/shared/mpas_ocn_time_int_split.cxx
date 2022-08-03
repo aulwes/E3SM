@@ -126,7 +126,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
     {
         // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         normalVelocity(k, iEdge) = 0.0;
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nEdges},{1,nVertLevels}) ,
@@ -145,13 +145,13 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
           }
           normalVelocity(k,iEdge) = nvel;
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     yakl_update_host(diag_solve::normalVelocity, h_normalVelocity, stream1);
 
 
 
     double splgr = splitFact*gravity;
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nEdges}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges) ,
     YAKL_LAMBDA(int iEdge)
     {
         int k = minLevelEdgeBot(iEdge);
@@ -182,7 +182,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
         }
 
     
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
     yakl_update_host(timeint_split::barotropicForcing, h_barotropicForcing, stream1);
 
     
@@ -211,7 +211,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
                  dt * barotropicForcing(iEdge));
 
         }
-    }, yakl::defaultVectorSize, stream1);
+    }, yakl::LaunchConfig<>(), stream1);
 
     yakl_update_host(timeint_split::normalBaroclinicVelocityNew, h_normalBaroclinicVelocityNew, stream1);
     

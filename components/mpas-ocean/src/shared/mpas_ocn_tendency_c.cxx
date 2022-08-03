@@ -19,7 +19,7 @@ void ocn_tendency_init_fluxes(d_double_2d_t * d_tend_layerThickness,
         tend_layerThickness(k,iCell) = 0.0;
     });
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCells}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells) ,
         YAKL_LAMBDA(int iCell)
     {
         surfaceThicknessFlux(iCell) = 0.0;
