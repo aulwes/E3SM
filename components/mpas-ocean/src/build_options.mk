@@ -11,7 +11,7 @@ FCINCLUDES += -I$(ROOT_DIR)/BGC
 FCINCLUDES += -I$(ROOT_DIR)/MARBL/include
 FCINCLUDES += -I$(ROOT_DIR)/gotm/build/modules
 ifneq "$(USE_YAKL)" ""
-    CXXINCLUDES := -I$(ROOT_DIR)/YAKL
+    CXXINCLUDES := -I$(ROOT_DIR)/YAKL/src
 endif
 override CPPFLAGS += -DCORE_OCEAN
 
