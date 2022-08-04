@@ -17,7 +17,7 @@
 !>  tracer advection quantities.
 !
 !-----------------------------------------------------------------------
-#undef USE_YAKL
+!#undef USE_YAKL
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -70,12 +70,13 @@ module ocn_tracer_advection_shared
       advCoefs3rd,    &! common advection coeffs for high order
       advMaskHighOrder ! mask for high order advection terms
 
-!#ifdef USE_YAKL
+#ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_nAdvCellsForEdge') :: c_nAdvCellsForEdge
    type(ocn_yakl_type), BIND(C, NAME='c_advCellsForEdge') :: c_advCellsForEdge
    type(ocn_yakl_type), BIND(C, NAME='c_advCoefs') :: c_advCoefs
    type(ocn_yakl_type), BIND(C, NAME='c_advCoefs3rd') :: c_advCoefs3rd
-!#endif
+   type(ocn_yakl_type), BIND(C, NAME='c_advMaskHighOrder') :: c_advMaskHighOrder
+#endif
 
    !--------------------------------------------------------------------
    ! Public member functions 
@@ -342,14 +343,15 @@ module ocn_tracer_advection_shared
       if (config_horiz_tracer_adv_order == 2) &
          advMaskHighOrder(:,:) = 0.0_RKIND
 
-!#ifdef USE_YAKL
+#ifdef USE_YAKL
          C_DECOMP(nAdvCellsForEdge)
          C_DECOMP(advCellsForEdge)
          C_DECOMP(advCoefs)
          C_DECOMP(advCoefs3rd)
+         C_DECOMP(advMaskHighOrder)
          
          call ocn_tracer_advect_yakl_init()
-!#endif
+#endif
 
       ! Copy module variables to device
       !$acc enter data copyin(nAdvCellsForEdge, advCellsForEdge, &

@@ -57,6 +57,7 @@ d_double_2d_t   * edgeSignOnCell,
                 * advCoefs,
                 * advCoefs3rd,
                 * weightsOnEdge,
+                * advMaskHighOrder,
                 * highOrderAdvectionMask
                 ;
 }
@@ -101,6 +102,7 @@ extern "C" ocn_yakl_type c_verticesOnEdge;
 extern "C" ocn_yakl_type c_edgesOnEdge;
 extern "C" ocn_yakl_type c_cellsOnVertex;
 extern "C" ocn_yakl_type c_fEdge;
+extern "C" ocn_yakl_type c_advMaskHighOrder;
 
 extern "C"
 void ocn_tracer_advect_yakl_init()
@@ -116,6 +118,9 @@ void ocn_tracer_advect_yakl_init()
     advCoefs3rd = yakl_wrap_array("advCoefs3rd", 
             static_cast<double *>(c_advCoefs3rd.ptr), c_advCoefs3rd.shape[0],
             c_advCoefs3rd.shape[1]);
+    advMaskHighOrder = yakl_wrap_array("advMaskHighOrder", 
+            static_cast<double *>(c_advMaskHighOrder.ptr), c_advMaskHighOrder.shape[0],
+            c_advMaskHighOrder.shape[1]);
 }
 
 

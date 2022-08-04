@@ -59,6 +59,7 @@ d_double_2d_t   * edgeSignOnCell,
                 * advCoefs,
                 * advCoefs3rd,
                 * weightsOnEdge,
+                * advMaskHighOrder,
                 * highOrderAdvectionMask
                 ;
 } // namespace mesh
