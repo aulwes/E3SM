@@ -3,6 +3,7 @@
 #include "mpas_ocn_diagnostics_variables.hxx"
 #include "mpas_ocn_mesh_c.hxx"
 #include "mpas_ocn_yakl_types.hxx"
+#include <math.h>
 
 #define GET_DPTR(v) (static_cast<double *>((diag_solve::c_##v).ptr))
 #define DEBUG 0
@@ -66,6 +67,7 @@ d_double_2d_t   * normalizedPlanetaryVorticityVertex,
                 * vorticityGradientTangentialComponent
                 ;
 
+extern "C" ocn_yakl_type c_layerThickness;
 extern "C" ocn_yakl_type c_kineticEnergyCell;
 extern "C" ocn_yakl_type c_relativeVorticityCell;
 extern "C" ocn_yakl_type c_divergence;
@@ -79,7 +81,7 @@ extern "C" ocn_yakl_type c_normRelVortEdge;
 extern "C" ocn_yakl_type c_normPlanetVortEdge;
 extern "C" ocn_yakl_type c_normalizedRelativeVorticityCell;
 extern "C" ocn_yakl_type c_displacedDensity;
-extern "C" ocn_yakl_type c_density;
+extern "C" ocn_yakl_type c_diag_density;
 extern "C" ocn_yakl_type c_zMid;
 extern "C" ocn_yakl_type c_zTop;
 extern "C" ocn_yakl_type c_ssh;
@@ -115,7 +117,7 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
             << nVertLevels << " " << nVertices << std::endl;
     }
     normalVelocity = yakl_create_real("normalVelocity", nVertLevels, nEdges);
-    layerThickness = yakl_create_real("layerThickness", nVertLevels, nCells);
+    layerThickness = yakl_create_real("layerThickness", c_layerThickness.shape[0], c_layerThickness.shape[1]);
     layerThickEdgeMean = yakl_create_real("layerThickEdgeMean", nVertLevels, nEdges);
     layerThickEdgeFlux = yakl_create_real("layerThickEdgeFlux", nVertLevels, nEdges);
     layerThicknessEdge = yakl_create_real("layerThicknessEdge", nVertLevels, nEdges);
@@ -142,8 +144,9 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
 
     displacedDensity = yakl_create_real("displacedDensity", 
                     c_displacedDensity.shape[0], c_displacedDensity.shape[1]);
+    //std::cerr << " yakl density shape = " << c_diag_density.shape[0] << " " << c_diag_density.shape[1] << std::endl;
     density = yakl_create_real("density", 
-                    c_density.shape[0], c_density.shape[1]);
+                    c_diag_density.shape[0], c_diag_density.shape[1]);
     zMid = yakl_create_real("zMid",
                     c_zMid.shape[0], c_zMid.shape[1]);
     zTop = yakl_create_real("zTop",
@@ -192,15 +195,15 @@ void ocn_diagnostics_update_device(double * h_normalVelocity, double * h_layerTh
     using namespace diag_solve;
     
     //std::cerr << " ocn_diagnostics_update_device..." << std::endl;
-    yakl_update_device(normalVelocity, h_normalVelocity, stream1);
-    yakl_update_device(layerThickness, h_layerThickness, stream1);
-    yakl_record_event(event1, stream1);
+    yakl_update_device(normalVelocity, h_normalVelocity);
+    yakl_update_device(layerThickness, h_layerThickness);
+    //yakl_record_event(event1);
     
-    yakl_update_device(displacedDensity, static_cast<double *>(c_displacedDensity.ptr), stream1);
-    yakl_update_device(density, static_cast<double *>(c_density.ptr), stream1);
-    yakl_update_device(BruntVaisalaFreqTop, static_cast<double *>(c_BruntVaisalaFreqTop.ptr), stream1);
-    yakl_update_device(zMid, static_cast<double *>(c_zMid.ptr), stream1);
-    yakl_update_device(RiTopOfCell, static_cast<double *>(c_RiTopOfCell.ptr), stream1);
+    yakl_update_device(displacedDensity, static_cast<double *>(c_displacedDensity.ptr));
+    yakl_update_device(density, static_cast<double *>(c_diag_density.ptr));
+    yakl_update_device(BruntVaisalaFreqTop, static_cast<double *>(c_BruntVaisalaFreqTop.ptr));
+    yakl_update_device(zMid, static_cast<double *>(c_zMid.ptr));
+    yakl_update_device(RiTopOfCell, static_cast<double *>(c_RiTopOfCell.ptr));
     //std::cerr << " ocn_diagnostics_update_device...done" << std::endl;
 }
 
@@ -238,13 +241,14 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
          // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         circulation(k, iVertex) = 0.0;
         relativeVorticity(k, iVertex) = 0.0;
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
 
     if ( DEBUG) {
         yakl::fence();
         std::cerr << " ocn_diag_solve_circ: loop 2..."  << std::endl;
     }
-    yakl_stream_wait(stream2, event1);
+    //yakl_stream_wait(stream2, event1);
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nVertices},{1,nVertLevels}) ,
     //yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,1},{1,1}) ,
     YAKL_LAMBDA(int iVertex, int k)
@@ -261,10 +265,11 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
               relativeVorticity(k, iVertex) = relativeVorticity(k, iVertex) + edgeSignOnVertex(i, iVertex) * r_tmp * invAreaTri1;
             }
          }
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
 
-    yakl_update_host(diag_solve::circulation, h_circulation, stream2);
-    yakl_update_host(diag_solve::relativeVorticity, h_relativeVorticity, stream2);
+    yakl_update_host(diag_solve::circulation, h_circulation);
+    yakl_update_host(diag_solve::relativeVorticity, h_relativeVorticity);
     
     if ( DEBUG ) 
     {
@@ -295,7 +300,7 @@ void ocn_diag_solve_layer_thick_center(int nEdges, double * h_layerThickness,
     {
         // initialize layerThickEdgeMean to avoid divide by zero and NaN problems.
         layerThickEdgeMean(k, iEdge) = -1.0e34;
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
 
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges) ,
@@ -308,14 +313,31 @@ void ocn_diag_solve_layer_thick_center(int nEdges, double * h_layerThickness,
             // central differenced
             layerThickEdgeMean(k,iEdge) = 0.5 * (layerThickness(k,cell1) + layerThickness(k,cell2));
           }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
     
-    yakl_update_host(diag_solve::layerThickEdgeMean, h_layerThickEdgeMean, stream1);
+    yakl_update_host(diag_solve::layerThickEdgeMean, h_layerThickEdgeMean);
     if ( DEBUG ) 
     {
         yakl::fence();
         std::cerr << " ocn_diag_solve_layer_thick_center done. " << std::endl;    
     }
+}
+
+extern "C"
+void ocn_diag_solve_layer_thick_flx_center(int nEdges, double * h_layerThickEdgeFlux)
+{
+    YAKL_LOCAL_NS(diag_solve, layerThickEdgeMean);
+    YAKL_LOCAL_NS(diag_solve, layerThickEdgeFlux);
+    YAKL_SCOPE(nVertLevels, diag_solve::nVertLevels);
+
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nEdges},{1,nVertLevels}) ,
+    YAKL_LAMBDA(int iEdge,int k)
+    {
+        // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
+        layerThickEdgeFlux(k, iEdge) = layerThickEdgeMean(k,iEdge);
+    }, yakl::LaunchConfig<>());
+
+    yakl_update_host(diag_solve::layerThickEdgeFlux, h_layerThickEdgeFlux);
 }
 
 extern "C"
@@ -341,7 +363,7 @@ void ocn_diag_solve_layer_thick_upwind(int nEdges, double * h_normalVelocity, do
     {
         // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         layerThickEdgeFlux(k, iEdge) = -1.0e34;
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges),
     YAKL_LAMBDA(int iEdge)
@@ -363,10 +385,11 @@ void ocn_diag_solve_layer_thick_upwind(int nEdges, double * h_normalVelocity, do
             {
               layerThickEdgeFlux(k,iEdge) = max(layerThickness(k,cell1), layerThickness(k,cell2));
             }
+            printf(" upwind: layerThickEdgeFlux(%d,%d) = %lf\n ", k,iEdge, layerThickEdgeFlux(k, iEdge));
           }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
 
-    yakl_update_host(diag_solve::layerThickEdgeFlux, h_layerThickEdgeFlux, stream1);
+    yakl_update_host(diag_solve::layerThickEdgeFlux, h_layerThickEdgeFlux);
     if ( DEBUG ) 
     {
         yakl::fence();
@@ -395,7 +418,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
     yakl_update_device(diag_solve::normalTransportVelocity, h_normalTransportVelocity);
 
     YAKL_LOCAL_NS(diag_solve, layerThickness);
-    YAKL_LOCAL_NS(diag_solve, layerThicknessEdge);
+    YAKL_LOCAL_NS(diag_solve, layerThickEdgeFlux);
     YAKL_LOCAL_NS(diag_solve, relativeVorticity);
     YAKL_LOCAL_NS(diag_solve, relativeVorticityCell);
     YAKL_LOCAL_NS(diag_solve, divergence);
@@ -433,12 +456,13 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
         std::cerr << " ocn_diagnostic_solve_vort_vel: loop 1. nCells, nVertLevels = "
             << nCells << " " << nVertLevels  << std::endl;
     }
-    return;
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell,int k)
     {
         relativeVorticityCell(k,iCell) = 0.0;
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream1);
     
     if ( DEBUG) {
         yakl::fence();
@@ -449,7 +473,8 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
     YAKL_LAMBDA(int iEdge,int k)
     {
         tangentialVelocity(k,iEdge) = 0.0;
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
 
 
     if ( DEBUG) {
@@ -469,9 +494,11 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
              }
             tangentialVelocity(k,iEdge) += tmp;
         }
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
 
-    yakl_update_host(diag_solve::tangentialVelocity, h_tangentialVelocity, stream2);
+    yakl_update_host(diag_solve::tangentialVelocity, h_tangentialVelocity);
+    //yakl_update_host(diag_solve::tangentialVelocity, h_tangentialVelocity, stream2);
 
     if ( DEBUG) {
         yakl::fence();
@@ -487,7 +514,8 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
          div_huGMBolus(k, iCell) = 0.0;
          if ( k < minLevelCell(iCell) )
             vertVelocityTop(k, iCell) = 0.0;
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
     
     if ( DEBUG) {
         yakl::fence();
@@ -507,8 +535,10 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
                                             * relativeVorticity(k, iVertex) * invAreaCell1;
           }
         }
-    }, yakl::LaunchConfig<>(), stream1);
-    yakl_update_host(diag_solve::relativeVorticityCell, h_relativeVorticityCell, stream1);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream1);
+    yakl_update_host(diag_solve::relativeVorticityCell, h_relativeVorticityCell);
+    //yakl_update_host(diag_solve::relativeVorticityCell, h_relativeVorticityCell, stream1);
 
     if ( DEBUG) {
         yakl::fence();
@@ -517,6 +547,7 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCellsH},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell,int k)
     {
+        vertVelocityTop(k,iCell) = 0.0;
         if ( (k >= minLevelCell(iCell)) && (k <= maxLevelCell(iCell)) )
         {
             double invAreaCell1 = invAreaCell(iCell);
@@ -532,18 +563,17 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
                 double dcEdge_temp = dcEdge(iEdge);
                 double dvEdge_temp = dvEdge(iEdge);
                 double r_tmp = dvEdge_temp * normalVelocity(k, iEdge) * invAreaCell1;
-                double h_tmp = layerThicknessEdge(k, iEdge) * edgeSignOnCell_temp
+                double h_tmp = layerThickEdgeFlux(k, iEdge) * edgeSignOnCell_temp
                                 * dvEdge_temp * invAreaCell1;
 
                tdiv += edgeSignOnCell_temp * r_tmp;
-               tdivhu += layerThicknessEdge(k, iEdge) * edgeSignOnCell_temp * r_tmp;
+               tdivhu += layerThickEdgeFlux(k, iEdge) * edgeSignOnCell_temp * r_tmp;
                trke += 0.25 * r_tmp * dcEdge_temp * normalVelocity(k,iEdge);
                // Compute vertical velocity from the horizontal total transport
                tdivhut += h_tmp * normalTransportVelocity(k, iEdge);
                // Compute vertical velocity from the horizontal GM Bolus velocity
                tdivhug += h_tmp * normalGMBolusVelocity(k, iEdge);
             }
-            
             divergence(k, iCell) = divergence(k, iCell) - tdiv;
             div_hu(k, iCell) = div_hu(k, iCell) - tdivhu;
             kineticEnergyCell(k, iCell) += trke;
@@ -552,9 +582,12 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
             // Compute vertical velocity from the horizontal GM Bolus velocity
             div_huGMBolus(k, iCell) = div_huGMBolus(k, iCell) - tdivhug;
     }
-    }, yakl::LaunchConfig<>(), stream2);
-    yakl_update_host(diag_solve::kineticEnergyCell, h_kineticEnergyCell, stream2);
-    yakl_update_host(diag_solve::divergence, h_divergence, stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
+    yakl_update_host(diag_solve::kineticEnergyCell, h_kineticEnergyCell);
+    yakl_update_host(diag_solve::divergence, h_divergence);
+    //yakl_update_host(diag_solve::kineticEnergyCell, h_kineticEnergyCell, stream2);
+    //yakl_update_host(diag_solve::divergence, h_divergence, stream2);
 
     if ( DEBUG) {
         yakl::fence();
@@ -575,11 +608,15 @@ void ocn_diagnostic_solve_vort_vel(int nCells, int nCellsH, int nEdges, double *
             vertTransportVelocityTop(k,iCell) = vertTransportVelocityTop(k+1,iCell) - div_huTransport(k,iCell);
             vertGMBolusVelocityTop(k,iCell) = vertGMBolusVelocityTop(k+1,iCell) - div_huGMBolus(k,iCell);
         }
-    }, yakl::LaunchConfig<>(), stream2);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream2);
         
-    yakl_update_host(diag_solve::vertVelocityTop, h_vertVelocityTop, stream2);
-    yakl_update_host(diag_solve::vertTransportVelocityTop, h_vertTransportVelocityTop, stream2);
-    yakl_update_host(diag_solve::vertGMBolusVelocityTop, h_vertGMBolusVelocityTop, stream2);
+    yakl_update_host(diag_solve::vertVelocityTop, h_vertVelocityTop);
+    yakl_update_host(diag_solve::vertTransportVelocityTop, h_vertTransportVelocityTop);
+    yakl_update_host(diag_solve::vertGMBolusVelocityTop, h_vertGMBolusVelocityTop);
+    //yakl_update_host(diag_solve::vertVelocityTop, h_vertVelocityTop, stream2);
+    //yakl_update_host(diag_solve::vertTransportVelocityTop, h_vertTransportVelocityTop, stream2);
+    //yakl_update_host(diag_solve::vertGMBolusVelocityTop, h_vertGMBolusVelocityTop, stream2);
     if ( DEBUG ) 
     {
         yakl::fence();
@@ -804,6 +841,9 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
     {
         std::cerr << " ocn_diagnostic_solve_rich. " << std::endl;    
     }
+    yakl_update_device(diag_solve::density, static_cast<double *>(diag_solve::c_diag_density.ptr));
+    yakl_update_device(diag_solve::zMid, static_cast<double *>(diag_solve::c_zMid.ptr));
+
     YAKL_LOCAL_NS(mesh, minLevelCell);
     YAKL_LOCAL_NS(mesh, maxLevelCell);
     YAKL_LOCAL_NS(mesh, nEdgesOnCell);
@@ -841,12 +881,19 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
             {
                 BruntVaisalaFreqTop(k,iCell) = coef * (displacedDensity(k-1,iCell) - density(k,iCell))
                     / (zMid(k-1,iCell) - zMid(k,iCell));
+//                if ( isnan(density(k,iCell)) )
+//                    printf(" density(%d,%d) isnan\n", k, iCell);
+//                if ( isnan(displacedDensity(k,iCell)) )
+//                    printf(" zdisplacedDensityMid(%d,%d) isnan\n", k, iCell);
+//                if ( isnan(zMid(k,iCell)) )
+//                    printf(" zMid(%d,%d) isnan\n", k, iCell);
             }
          }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream1);
 
     yakl_update_host(diag_solve::BruntVaisalaFreqTop, 
-                     h_BruntVaisalaFreqTop, stream1);
+                     h_BruntVaisalaFreqTop);
 
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCellsH},{1,nVertLevels}),
@@ -887,16 +934,19 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
              RiTopOfCell(k,iCell) = BruntVaisalaFreqTop(k,iCell) / (shearMean*shearMean + 1.0e-10);
             }
          }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream1);
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsH),
     YAKL_LAMBDA(int iCell)
     {
         int k = minLevelCell(iCell);
           RiTopOfCell(k,iCell) = RiTopOfCell(k+1,iCell);
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
+    //}, yakl::LaunchConfig<>(), stream1);
     
-    yakl_update_host(diag_solve::RiTopOfCell, h_RiTopOfCell, stream1);
+    yakl_update_host(diag_solve::RiTopOfCell, h_RiTopOfCell);
+    
     if ( DEBUG ) 
     {
         yakl::fence();
@@ -943,11 +993,12 @@ extern "C"
 void ocn_diag_update_density()
 {
     using diag_solve::stream1;
-    yakl_update_device(diag_solve::density, GET_DPTR(density), stream1);
+    yakl_update_device(diag_solve::density, GET_DPTR(diag_density));
+    //yakl_update_device(diag_solve::density, GET_DPTR(diag_density), stream1);
 }
 
 extern "C"
-void ocn_diag_pressure(double gravity)
+void ocn_diag_pressure(int rank, double gravity, double * h_density)
 {
     if ( DEBUG ) 
     {
@@ -968,7 +1019,6 @@ void ocn_diag_pressure(double gravity)
     using diag_solve::stream1;
 
     double coef = gravity*0.5;
-    //yakl::timer_start("ocn_diag_pressure");
     
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell, int k)
@@ -982,15 +1032,18 @@ void ocn_diag_pressure(double gravity)
           {
             pressure(k,iCell) = surfacePressure(iCell);
             double tmp = 0.0;
-            for ( int j = minLevelCell(iCell); j <= k-1; ++j )
+            for ( int j = minLevelCell(iCell); j <= k-1; ++j ) {
                 tmp = tmp + density(j,iCell)*layerThickness(j,iCell);
+            }
             pressure(k,iCell) = pressure(k,iCell) +
                     coef * (2*tmp + density(k  ,iCell)*layerThickness(k  ,iCell));
           }
-    }, yakl::LaunchConfig<>(), stream1);
-
+    //}, yakl::LaunchConfig<>(), stream1);
+    }, yakl::LaunchConfig<>());
+    
+    
     /*
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>({1,nCells}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells),
     YAKL_LAMBDA(int iCell)
     {
        pressure(minLevelCell(iCell),iCell) = surfacePressure(iCell)
@@ -1000,12 +1053,11 @@ void ocn_diag_pressure(double gravity)
           pressure(k,iCell) = pressure(k-1,iCell)
             + coef*(  density(k-1,iCell)*layerThickness(k-1,iCell)
                                  + density(k  ,iCell)*layerThickness(k  ,iCell));
-    });
+    }, yakl::LaunchConfig<>());
     */
-    //yakl::timer_stop("ocn_diag_pressure");
 
     
-    yakl_update_host(diag_solve::pressure, GET_DPTR(pressure), stream1);
+    yakl_update_host(diag_solve::pressure, GET_DPTR(pressure));
     if ( DEBUG ) 
     {
         yakl::fence();

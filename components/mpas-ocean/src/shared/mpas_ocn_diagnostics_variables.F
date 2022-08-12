@@ -28,6 +28,8 @@
 #endif
 #define C_DECOMP(var) \
     CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+#define C_NSDECOMP(nsvar,var) \
+    CAT(c_,nsvar) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_diagnostics_variables
 
@@ -222,7 +224,8 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_normPlanetVortEdge') :: c_normPlanetVortEdge
    type(ocn_yakl_type), BIND(C, NAME='c_normalizedRelativeVorticityCell') :: c_normalizedRelativeVorticityCell
    type(ocn_yakl_type), BIND(C, NAME='c_displacedDensity') :: c_displacedDensity
-   type(ocn_yakl_type), BIND(C, NAME='c_density') :: c_density
+   ! density is overused, so add something like a namespace
+   type(ocn_yakl_type), BIND(C, NAME='c_diag_density') :: c_diag_density
    type(ocn_yakl_type), BIND(C, NAME='c_zMid') :: c_zMid
    type(ocn_yakl_type), BIND(C, NAME='c_zTop') :: c_zTop
    type(ocn_yakl_type), BIND(C, NAME='c_RiTopOfCell') :: c_RiTopOfCell
@@ -864,7 +867,7 @@ contains
       C_DECOMP(normPlanetVortEdge)
       C_DECOMP(normalizedRelativeVorticityCell)
       C_DECOMP(displacedDensity)
-      C_DECOMP(density)
+      C_NSDECOMP(diag_density, density)
       C_DECOMP(zMid)
       C_DECOMP(zTop)
       C_DECOMP(RiTopOfCell)

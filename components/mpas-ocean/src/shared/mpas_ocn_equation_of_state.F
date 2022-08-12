@@ -64,10 +64,10 @@ module ocn_equation_of_state
    !
    !--------------------------------------------------------------------
 
-   integer ::                   &
+   integer, public ::                   &
       ocnEqStateChoice           ! user choice of eq state method
 
-   integer, parameter ::        &! supported equation of state methods
+   integer, public, parameter ::        &! supported equation of state methods
       ocnEqStateTypeLinear = 1, &! linear equation of state
       ocnEqStateTypeJM     = 2, &! Jackett-McDougall eqn of state
       ocnEqStateTypeWright = 3   ! Wright eqn of state

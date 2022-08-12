@@ -64,7 +64,7 @@ extern "C" double
     bup2s0t1_c,
     bup2s0t2_c;
 
-extern "C" ocn_yakl_type c_density;
+extern "C" ocn_yakl_type c_jm_density;
 extern "C" ocn_yakl_type c_tracerSalt;
 extern "C" ocn_yakl_type c_tracerTemp;
 extern "C" ocn_yakl_type c_thermalExpansionCoeff;
@@ -73,12 +73,12 @@ extern "C" ocn_yakl_type c_salineContractionCoeff;
 namespace {
 void check_extents()
 {
-    if ( (c_density.shape[1] != eos_jm::density->extent(1)) 
-        || (c_density.shape[0]  != eos_jm::density->extent(0)) )
+    if ( (c_jm_density.shape[1] != eos_jm::density->extent(1)) 
+        || (c_jm_density.shape[0]  != eos_jm::density->extent(0)) )
     {
         //std::cerr << " reallocating..." << std::endl;
         eos_jm::density->deallocate();
-        eos_jm::density = yakl_create_real("density", c_density.shape[0], c_density.shape[1]);
+        eos_jm::density = yakl_create_real("density", c_jm_density.shape[0], c_jm_density.shape[1]);
     }
 
     if ( (c_tracerTemp.shape[1] != eos_jm::tracerTemp->extent(1)) 

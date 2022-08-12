@@ -30,6 +30,8 @@
 #endif
 #define C_DECOMP(var) \
     CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+#define C_NSDECOMP(nsvar,var) \
+    CAT(c_,nsvar) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_equation_of_state_jm
 
@@ -46,7 +48,7 @@ module ocn_equation_of_state_jm
    save
 
 #ifdef USE_YAKL
-   type(ocn_yakl_type), BIND(C, NAME='c_density')    :: c_density
+   type(ocn_yakl_type), BIND(C, NAME='c_jm_density')    :: c_jm_density
    type(ocn_yakl_type), BIND(C, NAME='c_tracerSalt') :: c_tracerSalt
    type(ocn_yakl_type), BIND(C, NAME='c_tracerTemp') :: c_tracerTemp
    type(ocn_yakl_type), BIND(C, NAME='c_thermalExpansionCoeff')  :: c_thermalExpansionCoeff
@@ -481,13 +483,12 @@ contains
       density = 0.0_RKIND
 !#if 0
 #ifdef USE_YAKL
-      C_DECOMP(density)
+      C_NSDECOMP(jm_density,density)
       C_DECOMP(tracerSalt)
       C_DECOMP(tracerTemp)
 
       call mpas_timer_start("fortran ocn_eos_density_only")
       density = 0.0_RKIND
-      !tmpdens = 0.0_RKIND
       call ocn_eos_density_only(mpas_myrank, nCells, nVertLevels, p, p2, &
                         tracerSalt, tracerTemp, density)
       call mpas_timer_stop("fortran ocn_eos_density_only")
@@ -846,7 +847,7 @@ contains
 
 !#if 0
 #ifdef USE_YAKL
-      C_DECOMP(density)
+      C_NSDECOMP(jm_density,density)
       C_DECOMP(tracerSalt)
       C_DECOMP(tracerTemp)
       C_DECOMP(thermalExpansionCoeff)

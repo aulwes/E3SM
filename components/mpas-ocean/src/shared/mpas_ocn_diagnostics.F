@@ -17,10 +17,23 @@
 !>  diagnostic variables, and other quantities such as vertAleTransportTop.
 !
 !-----------------------------------------------------------------------
-#undef USE_YAKL
+!#undef USE_YAKL
+
+
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_diagnostics
 
+   use mpas_dmpar
    use mpas_timer
    use mpas_derived_types
    use mpas_pool_routines
@@ -83,6 +96,10 @@ module ocn_diagnostics
       thickEdgeFluxUnknown = 0, &! type unknown or unset
       thickEdgeFluxCenter  = 1, &! use mean thickness of cell neighbors
       thickEdgeFluxUpwind  = 2   ! use upwind cell thickness at edge
+
+#ifdef USE_YAKL
+   type(ocn_yakl_type), BIND(C, NAME='c_layerThickness') :: c_layerThickness
+#endif
 
 !***********************************************************************
 
@@ -234,6 +251,10 @@ contains
 !     endif
 #endif
 
+#ifdef USE_YAKL
+      call ocn_diagnostics_update_device(normalVelocity,layerThickness)
+#endif
+
       ! inputs: layerThickness, normalVelocity
       ! output: layerThickEdgeMean, layerThickEdgeFlux
       call ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
@@ -302,6 +323,13 @@ contains
                                          nCells, 0, 'relative', density, err, &
                                          thermExpCoeff, salineContractCoeff, &
                                          timeLevelIn=timeLevel)
+      
+      
+      ! TO DO: need to figure out how to pass device array to density routine
+#ifdef USE_YAKL
+      call ocn_diag_update_density
+#endif
+
       ! compute potentialDensity, the density displaced adiabatically to the mid-depth of top layer.
       call ocn_equation_of_state_density(statePool, meshPool, activeTracers, tracersSurfaceValue, &
                                          nCells, 1, 'absolute', potentialDensity, &
@@ -313,12 +341,16 @@ contains
                                          nCells, 1, 'relative', displacedDensity, &
                                          err, timeLevelIn=timeLevel)
 
+
       !
       ! Pressure
       ! This section must be placed in the code after computing the density.
       !
       ! inputs: layerThickness, density, surfacePressure
       ! outputs: montgomeryPotential, pressure
+      
+      !if ( mpas_myrank == 11 ) &
+       ! print *, ' density(2,1) = ', density(2,1)
       call ocn_diagnostic_solve_pressure(layerThickness, density, &
                 surfacePressure, montgomeryPotential, pressure)
 
@@ -576,7 +608,7 @@ contains
       real (kind=RKIND) :: invAreaTri1, r_tmp
 
       err = 0
-
+!#if 0
 #ifdef USE_YAKL
     call ocn_diag_solve_circ(vertexDegree, normalVelocity, circulation, relativeVorticity)
 #else
@@ -659,6 +691,14 @@ contains
             real(kind=RKIND), intent(in), dimension(*) :: layerThickness, layerThickEdgeMean
           end subroutine
 
+          subroutine ocn_diag_solve_layer_thick_flx_center(nEdges, layerThickEdge) &
+                        bind(C,name="ocn_diag_solve_layer_thick_flx_center")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nEdges
+            real(kind=RKIND), intent(in), dimension(*) :: layerThickEdge
+          end subroutine
+
           subroutine ocn_diag_solve_layer_thick_upwind(nEdges, normalVelocity, layerThickness, layerThickEdge) &
                         bind(C,name="ocn_diag_solve_layer_thick_upwind")
             use iso_c_binding
@@ -700,6 +740,8 @@ contains
       ! Begin code
 
       ! Compute mean layer thickness at edge
+      
+!#if 0
 #ifdef USE_YAKL
         call ocn_diag_solve_layer_thick_center(nEdgesAll, layerThickness, layerThickEdgeMean)
 #else
@@ -741,6 +783,11 @@ contains
       case (thickEdgeFluxCenter)
          ! Use centered (mean) thickness as flux value
 
+!#if 0
+#ifdef USE_YAKL
+        call ocn_diag_solve_layer_thick_flx_center(nEdgesAll, layerThickEdgeFlux)
+#else
+
 #ifdef MPAS_OPENACC
          !$acc parallel loop collapse(2) &
          !$acc    present(layerThickEdgeFlux, layerThickEdgeMean)
@@ -758,9 +805,11 @@ contains
          !$omp end do
          !$omp end parallel
 #endif
+#endif ! USE_YAKL
 
       case (thickEdgeFluxUpwind)
          ! Use upwind thickness as the edge flux value
+!#if 0
 #ifdef USE_YAKL
         call ocn_diag_solve_layer_thick_upwind(nEdgesAll, normalVelocity, layerThickness, layerThickEdgeFlux)
 #else
@@ -1049,6 +1098,7 @@ contains
       nEdges = nEdgesHalo( 2 )
       nCells = nCellsHalo ( 1 )
 
+!#if 0
 #ifdef USE_YAKL
       call ocn_diagnostic_solve_vort(nVertices,nEdges,nCells,vertexDegree, &
                 normalizedRelativeVorticityEdge, normalizedPlanetaryVorticityEdge, &
@@ -1335,7 +1385,8 @@ contains
       !
       coef = -gravity / rho_sw
       nCells = nCellsHalo( 2 )
-#ifdef USE_YAKL
+#if 0
+!#ifdef USE_YAKL
       call ocn_diagnostic_solve_rich(coef, nCells, BruntVaisalaFreqTop, RiTopOfCell)
 #else
 #ifdef MPAS_OPENACC
@@ -1661,6 +1712,7 @@ contains
       real(kind=RKIND) :: invAreaCell1
       real(kind=RKIND) :: dcEdge_temp, dvEdge_temp, r_tmp, weightsOnEdge_temp
 
+      real (kind=RKIND), dimension(:,:), allocatable:: tmp_tangentialVelocity, tmp_vertVelocityTop
       real (kind=RKIND), dimension(:), allocatable:: div_hu,div_huTransport,div_huGMBolus
 
       interface
@@ -1685,7 +1737,9 @@ contains
 
       ! Need owned cells for relativeVorticityCell
       nCells = nCellsOwned
-
+      allocate(tmp_tangentialVelocity(size(tangentialVelocity,1), size(tangentialVelocity,2)), &
+                tmp_vertVelocityTop(size(vertVelocityTop,1), size(vertVelocityTop,2)))
+!#if 0
 #ifdef USE_YAKL
       nCellsH = nCellsHalo( 2 )
       nEdges = nEdgesHalo( 2 )
@@ -1822,6 +1876,27 @@ contains
       !$omp end parallel
 #endif
 
+!      do iEdge = 1, nEdges
+!        do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+!          if ( abs(tangentialVelocity(k,iEdge) - tmp_tangentialVelocity(k,iEdge)) > 1.0e-12 ) &
+!             print *,mpas_myrank,": tangentialVelocity expected ", tangentialVelocity(k,iEdge), ", but got ",tmp_tangentialVelocity(k,iEdge), &
+!                 " for k,iEdge = ",k,iEdge
+!
+!        enddo
+!      enddo
+
+!      do iCell = 1, nCells
+!        do k = 1, maxLevelCell(iCell)
+!          dcEdge_temp = 0.0_RKIND
+!          if ( edgesOnCell(1, iCell) > 0 ) &
+!          dcEdge_temp = layerThicknessEdgeFlux(k, edgesOnCell(1, iCell))
+!          if ( abs(dcEdge_temp - tmp_vertVelocityTop(k,iCell)) > 1.0e-12 ) &
+!             print *,mpas_myrank,": vertVelocityTop expected ", dcEdge_temp, ", but got ",tmp_vertVelocityTop(k,iCell), &
+!                 " for k,iCell = ",k,iCell
+!
+!        enddo
+!      enddo
+      deallocate(tmp_tangentialVelocity,tmp_vertVelocityTop)
 #endif ! USE_YAKL
 
    end subroutine ocn_diagnostic_solve_vortVel!}}}
@@ -2008,6 +2083,7 @@ contains
 
       nCells = nCellsAll
 
+!#if 0
 #ifdef USE_YAKL
       call ocn_diagnostic_solve_zcoord(ssh)
 #else
@@ -2102,7 +2178,7 @@ contains
       integer :: nCells
       integer :: iCell
       integer :: k
-
+      
       real (kind=RKIND), dimension(:), allocatable:: pTop
 
       interface
@@ -2165,11 +2241,13 @@ contains
         deallocate(pTop)
 
       else
-
+!#if 0
 #ifdef USE_YAKL
-        call ocn_diag_pressure(gravity)
-#else
 
+        call ocn_diag_pressure(gravity)
+
+#else
+        
 #ifdef MPAS_OPENACC
         !$acc parallel loop present(layerThickness, pressure, surfacePressure, density, &
         !$acc                       minLevelCell, maxLevelCell)
@@ -3813,7 +3891,11 @@ contains
          block                    ! variables in current subblock
 
       type(mpas_pool_type), pointer :: &
+         statePool, &
          meshPool                 ! mesh variables in MPAS pool structure
+
+      real (kind=RKIND), dimension(:,:), pointer :: &
+        layerThickness
 
       integer, pointer :: &! mesh dimensions
          nCells, &!
@@ -3886,6 +3968,12 @@ contains
       call mpas_pool_get_dimension(meshPool, 'nVertLevels', &
                                    nVertLevels)
 
+      call mpas_pool_get_subpool(block % structs, 'state', statePool)
+      call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, 1)
+      C_DECOMP(layerThickness)
+      
+      !print *,Format='(" ocn_diagnostics_init: density addr = ",Z)', c_loc(density)
+      !write(*,'(" ocn_diagnostics_init: density addr = ",Z)') c_loc(density)
       call ocn_diagnostics_yakl_init(nCells, nEdges, nVertices, nVertLevels)
 #endif
 
