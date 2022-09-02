@@ -414,8 +414,8 @@ module ocn_tracer_advection_mono
         ! Need all the edges around the 1 halo cells and owned cells
         nEdges = nEdgesHalo( 2 )
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
         if ( isnan(normalThicknessFlux(1,1)) ) &
             print *," pre ocn_advect_mono_set_flux: normalThicknessFlux is nan", normalThicknessFlux(1,1)
@@ -565,8 +565,8 @@ module ocn_tracer_advection_mono
         allocate(tmp_wt(size(workTend,1),size(workTend,2)))
         allocate(tmp_in(size(flxIn,1),size(flxIn,2)))
         allocate(tmp_out(size(flxOut,1),size(flxOut,2)))
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
         call ocn_advect_mono_set_flux_inout(mpas_myrank,nCellsAll, nCellsHalo(1), nEdgesAll, dt, &
 !                    tmp_hf, tmp_wt,tmp_in,tmp_out)
@@ -644,13 +644,13 @@ module ocn_tracer_advection_mono
 
            ! Upwind fluxes are accumulated in workTend
 !           if ( 0 == mpas_myrank) then
-!           do k = minLevelCell(iCell), maxLevelCell(iCell)
-!                if ( abs(tmp_wt(k,iCell) - workTend(k,iCell)) > 1.0e-12 ) then
-!                    print *, mpas_myrank, ': workTend error: expected, got = ', workTend(k,iCell), tmp_wt(k,iCell), &
-!                        ' for k,iCell = ', k,iCell
-!                    call exit(-1)
-!                endif
-!           end do
+           do k = minLevelCell(iCell), maxLevelCell(iCell)
+                if ( abs(tmp_wt(k,iCell) - workTend(k,iCell)) > 1.0e-14 ) then
+                    print *, mpas_myrank, ': workTend error: expected, got = ', workTend(k,iCell), tmp_wt(k,iCell), &
+                        ' for k,iCell = ', k,iCell
+                    call exit(-1)
+                endif
+           end do
 !           endif
 
            ! Build the factors for the FCT
@@ -674,6 +674,16 @@ module ocn_tracer_advection_mono
                             (tracerUpwindNew - tracerMinNew + eps)
               flxOut(k,iCell) = min(1.0_RKIND, &
                                 max(0.0_RKIND, scaleFactor))
+                if ( abs(tmp_in(k,iCell) - flxIn(k,iCell)) > 1.0e-14 ) then
+                    print *, mpas_myrank, ': workTend error: expected, got = ', flxIn(k,iCell), tmp_in(k,iCell), &
+                        ' for k,iCell = ', k,iCell
+                    call exit(-1)
+                endif
+                if ( abs(tmp_out(k,iCell) - flxOut(k,iCell)) > 1.0e-14 ) then
+                    print *, mpas_myrank, ': workTend error: expected, got = ', flxOut(k,iCell), tmp_out(k,iCell), &
+                        ' for k,iCell = ', k,iCell
+                    call exit(-1)
+                endif
            end do ! k loop
 
            ! if ( 0 == mpas_myrank .and. iCell == 7 ) &
@@ -721,10 +731,10 @@ module ocn_tracer_advection_mono
                                       min(flxOut(k,cell1), flxIn (k,cell2)) &
                                     + min(0.0_RKIND,highOrderFlx(k,iEdge))* &
                                       min(flxIn (k,cell1), flxOut(k,cell2))
-!                if ( abs(tmp_hf(k,iEdge) - highOrderFlx(k,iEdge)) > 1.0e-12 ) then
-!                    print *, ' highOrderFlx error 2: expected, got = ', highOrderFlx(k,iCell), tmp_hf(k,iCell)
-!                    call exit(-1)
-!                endif
+                if ( abs(tmp_hf(k,iEdge) - highOrderFlx(k,iEdge)) > 1.0e-14 ) then
+                    print *, ' highOrderFlx error 2: expected, got = ', highOrderFlx(k,iCell), tmp_hf(k,iCell)
+                    call exit(-1)
+                endif
            end do ! k loop
         end do ! iEdge loop
 #ifndef MPAS_OPENACC
@@ -783,6 +793,13 @@ module ocn_tracer_advection_mono
               ! workTend  on RHS is total horiz advection tendency
               ! tracerCur on LHS is provisional tracer after
               !                     horizontal fluxes only.
+              if ( isnan(layerThickness(k,iCell)) ) &
+                print *,mpas_myrank, ": layerThickness is nan"
+              if ( isnan(workTend(k,iCell)) ) &
+                print *,mpas_myrank, ": workTend is nan"
+              if ( isnan(hProvInv(k,iCell)) ) &
+                print *,mpas_myrank, ": hProvInv is nan"
+                
               tracerCur(k,iCell) = (tracerCur(k,iCell)* &
                                     layerThickness(k,iCell) &
                                     + dt*workTend(k,iCell)) &

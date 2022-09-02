@@ -8,7 +8,8 @@
    advCoefs, advCoefs3rd,nAdvCellsForEdge,advCellsForEdge
 **/
 
-
+#define DMIN(a,b) std::min<double>(a,b)
+#define DMAX(a,b) std::max<double>(a,b)
 namespace
 {
 
@@ -343,7 +344,7 @@ void ocn_advect_mono_set_flux(int nCells, int nEdges, double * h_tracerCur, doub
 }
 
 extern "C"
-void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells, int nEdges, double dt,
+void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCellsHalo, int nEdges, double dt,
                                     double * h_highOrderFlx, double * h_workTend, double * h_flxIn, double * h_flxOut)
 {
     YAKL_LOCAL_NS(tracer_mono,workTend);
@@ -370,8 +371,9 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells,
     YAKL_LOCAL_NS(mesh, areaCell);
     YAKL_SCOPE(eps, tracer_mono::eps);
     YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
+    YAKL_SCOPE(nCells, mesh::nCellsAll);
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,initNCells+1},{1,nVertLevels}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells+1},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
         workTend(k, iCell) = 0.0;
@@ -380,53 +382,27 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells,
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsHalo) ,
     YAKL_LAMBDA(int iCell)
     {
         //double invAreaCell1 = invAreaCell(iCell);
         double invAreaCell1 = 1.0 / areaCell(iCell);
-        //if ( 0 == mpas_myrank && 2 == iCell )
-          //  std::cerr << " nEdgesOnCell(iCell) = " << nEdgesOnCell(iCell) << std::endl;
+
         for ( int i = 1; i <= nEdgesOnCell(iCell); ++i ) {
             int iEdge = edgesOnCell(i, iCell);
             int cell1 = cellsOnEdge(1,iEdge);
             int cell2 = cellsOnEdge(2,iEdge);
             double signedFactor = edgeSignOnCell(i, iCell) * invAreaCell1;
-            /*
-              if ( std::isnan(edgeSignOnCell(i,iCell)) )  {
-                std::cerr << " ocn_advect_mono_set_flux_inout Error: edgeSignOnCell isnan for i,iCell = " << i << " " << iCell << std::endl;
-                exit(-1);
-              }
-              if ( std::isnan(invAreaCell1) )  {
-                std::cerr << " ocn_advect_mono_set_flux_inout Error: edgeSignOnCell isnan for i,iCell = " << i << " " << iCell << std::endl;
-                exit(-1);
-              }
-              
-              if ( 0 == mpas_myrank && iCell == 2 )
-                std::cerr << " yakl: minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge) = " <<
-                    minLevelEdgeBot(iEdge) << " " << maxLevelEdgeTop(iEdge) << std::endl;
-                */
+
             for ( int k = minLevelEdgeBot(iEdge); k <= maxLevelEdgeTop(iEdge); ++k ) {
               workTend(k,iCell) = workTend(k,iCell)
                                 + signedFactor*lowOrderFlx(k,iEdge);
-                                /*
-              if ( 0 == mpas_myrank && k == 1 && iCell == 2 )
-                std::cerr << " yakl: signedFactor, lowOrderFlx = " << signedFactor << " " << lowOrderFlx(k,iEdge)
-                    << std::endl;
-                    */
+
               // Accumulate remaining high order fluxes
               flxOut(k,iCell) = flxOut(k,iCell) + std::min(0.0,
                                 signedFactor*highOrderFlx(k,iEdge));
               flxIn (k,iCell) = flxIn (k,iCell) + std::max(0.0,
                                 signedFactor*highOrderFlx(k,iEdge));
-                                /*
-              if ( std::isnan(workTend(k,iCell)) ) 
-                std::cerr << " Error: workTend isnan for k,iCell = " << k << " " << iCell << std::endl;
-              if ( std::isnan(flxIn(k,iCell)) ) 
-                std::cerr << " Error: workTend isnan for k,iCell = " << k << " " << iCell << std::endl;
-              if ( std::isnan(flxOut(k,iCell)) ) 
-                std::cerr << " Error: workTend isnan for k,iCell = " << k << " " << iCell << std::endl;
-                */
             }
         }
         
@@ -446,13 +422,19 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells,
             scaleFactor = (tracerUpwindNew - tracerMin(k,iCell))/
                           (tracerUpwindNew - tracerMinNew + eps);
             flxOut(k,iCell) = std::min(1.0, std::max(0.0, scaleFactor));
-            /*
-              if ( 0 == mpas_myrank && k == 89 && iCell == 7 )
-                std::cerr << " yakl: flxOut = " << flxOut(k,iCell) << " tracerUpwindNew = " << tracerUpwindNew
-                    << " tracerMin = " << tracerMin(k,iCell)
-                    << std::endl;
-            */
         }        
+    }, yakl::LaunchConfig<>());
+
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nEdges) ,
+    YAKL_LAMBDA(int iEdge) {
+        int cell1 = cellsOnEdge(1,iEdge);
+        int cell2 = cellsOnEdge(2,iEdge);
+        for ( int k = minLevelEdgeBot(iEdge); k <= maxLevelEdgeTop(iEdge); ++k ) {
+              highOrderFlx(k,iEdge) = DMAX(0.0,highOrderFlx(k,iEdge))*
+                                      DMIN(flxOut(k,cell1), flxIn (k,cell2))
+                                    + DMIN(0.0,highOrderFlx(k,iEdge))*
+                                      DMIN(flxIn (k,cell1), flxOut(k,cell2));        
+        }
     }, yakl::LaunchConfig<>());
 
     /*
@@ -512,7 +494,6 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells,
             flxOut(k,iCell) = std::min(1.0, std::max(0.0, scaleFactor));
        }
     });
-    */
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nEdges},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iEdge,int k)
@@ -532,6 +513,7 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCells,
         }
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
+    */
     
     yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
     yakl_update_host(tracer_mono::flxIn, h_flxIn);
