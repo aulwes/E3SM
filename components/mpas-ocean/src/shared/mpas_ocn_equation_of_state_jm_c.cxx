@@ -113,6 +113,8 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
     YAKL_LOCAL_NS(eos_jm,tracerTemp);
     YAKL_LOCAL_NS(eos_jm,density);
 
+    //printf(" density shape = %d, %d\n", density.extent(0), density.extent(1));
+
     YAKL_SCOPE(uns2t0, uns2t0_c);
 
     YAKL_SCOPE(uns1t0, uns1t0_c);
@@ -168,6 +170,14 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
     YAKL_SCOPE(bup1s0t1, bup1s0t1_c);
     YAKL_SCOPE(bup1s0t3, bup1s0t3_c);
 
+    int nv = density.extent(0);
+    int nc = density.extent(1);
+    
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nc},{1,nv}) ,
+    YAKL_LAMBDA(int iCell,int k) {
+        density(k, iCell) = 0.0;
+    });
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
@@ -180,17 +190,29 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
          ///
          /// first calculate surface (p=0) values from UNESCO eqns.
          ///
+        /*
          double work1 =      uns1t0 + uns1t1*tq +
                      (uns1t2 + (uns1t3*tq + uns1t4*t2))*t2;
-         double work2 = sqr*(unsqt0 + (unsqt1*tq + unsqt2*t2));
+        double work2 = sqr*(unsqt0 + (unsqt1*tq + unsqt2*t2));
 
          double rhosfc = unt1*tq + (unt2 + (unt3*tq + (unt4 + unt5*tq)*t2))*t2
                           + (uns2t0*sq + work1 + work2)*sq;
+         */
 
+        // orig
+
+         double work1 =      uns1t0 + uns1t1*tq +
+                     (uns1t2 + uns1t3*tq + uns1t4*t2)*t2;
+         double work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
+
+         double rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
+                          + (uns2t0*sq + work1 + work2)*sq;
+        
          ///
          /// now calculate bulk modulus at pressure p from
          /// Jackett and McDougall formula
          ///
+        /*
          double work3 = bup0s1t0 + (bup0s1t1*tq +
                 (bup0s1t2 + bup0s1t3*tq)*t2 +
           p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
@@ -205,10 +227,33 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
                (bup1s0t2 + bup1s0t3*tq)*t2)) +
          p2(k)*(bup2s0t0 + (bup2s0t1*tq + bup2s0t2*t2)) +
                 sq*(work3 + work4));
+        */
 
 
+        // orig
+         double work3 = bup0s1t0 + bup0s1t1*tq +
+                (bup0s1t2 + bup0s1t3*tq)*t2 +
+          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
+          p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2);
+
+         double work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
+                      bup1sqt0*p(k));
+
+         double bulkMod = bup0s0t0 + bup0s0t1*tq +
+                  (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 +
+            p(k) *(bup1s0t0 + bup1s0t1*tq +
+                  (bup1s0t2 + bup1s0t3*tq)*t2) +
+            p2(k)*(bup2s0t0 + bup2s0t1*tq + bup2s0t2*t2) +
+                   sq*(work3 + work4);
+        
          density(k,iCell) = (unt0 + rhosfc)*bulkMod/
                             (bulkMod - p(k));
+        /*
+         density(k,iCell) = bup0s0t0 + (bup0s0t1*tq +                    
+                  (bup0s0t2 + (bup0s0t3*tq + bup0s0t4*t2))*t2)+ 
+            p(k) *(bup1s0t0 + bup1s0t1*tq +             
+                  (bup1s0t2 + bup1s0t3*tq)*t2);
+        */
     });
 
     yakl_update_host(eos_jm::density, h_density);
@@ -292,6 +337,18 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
     YAKL_SCOPE(bup1s0t1, bup1s0t1_c);
     YAKL_SCOPE(bup1s0t3, bup1s0t3_c);
 
+    //printf(" thermalExpansionCoeff shape = %d, %d\n", thermalExpansionCoeff.extent(0), thermalExpansionCoeff.extent(1));
+
+    int nv = density.extent(0);
+    int nc = density.extent(1);
+    
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nc},{1,nv}) ,
+    YAKL_LAMBDA(int iCell,int k) {
+        density(k, iCell) = 0.0;
+        thermalExpansionCoeff(k, iCell) = 0.0;
+        salineContractionCoeff(k, iCell) = 0.0;
+    });
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
@@ -310,29 +367,41 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                     //(uns1t2 + (uns1t3*tq + uns1t4*t2))*t2;
         auto work2 = sqr*(unsqt0 + unsqt1*tq + unsqt2*t2);
 
-        auto rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
-                        + (uns2t0*sq + work1 + work2)*sq;
+        double rhosfc = unt1*tq + (unt2 + unt3*tq + (unt4 + unt5*tq)*t2)*t2
+                          + (uns2t0*sq + work1 + work2)*sq;
+                          
+        //auto rhosfc = unt1*tq + (unt2 + (unt3*tq + (unt4 + unt5*tq)*t2))*t2
+          //              + (uns2t0*sq + work1 + work2)*sq;
 
         /***
         *** now calculate bulk modulus at pressure p from
         *** Jackett and McDougall formula
         ***/
 
-        auto work3 = bup0s1t0 + (bup0s1t1*tq +
+        auto work3 = bup0s1t0 + bup0s1t1*tq +
                (bup0s1t2 + bup0s1t3*tq)*t2 +
          p(k) *(bup1s1t0 + bup1s1t1*tq + bup1s1t2*t2) +
-         p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2));
+         p2(k)*(bup2s1t0 + bup2s1t1*tq + bup2s1t2*t2);
 
         auto work4 = sqr*(bup0sqt0 + bup0sqt1*tq + bup0sqt2*t2 +
                           bup1sqt0*p(k));
 
+        double bulkMod  = bup0s0t0 + bup0s0t1*tq +
+                   (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 +
+             p(k) *(bup1s0t0 + bup1s0t1*tq +
+                   (bup1s0t2 + bup1s0t3*tq)*t2) +
+             p2(k)*(bup2s0t0 + bup2s0t1*tq + bup2s0t2*t2) +
+                                        sq*(work3 + work4);
+
+        /*
         auto bulkMod  = bup0s0t0 + (bup0s0t1*tq +
                   (bup0s0t2 + (bup0s0t3*tq + bup0s0t4*t2))*t2 +
             p(k) *(bup1s0t0 + (bup1s0t1*tq +
                   (bup1s0t2 + bup1s0t3*tq)*t2)) +
             p2(k)*(bup2s0t0 + (bup2s0t1*tq + bup2s0t2*t2)) +
                     sq*(work3 + work4));
-
+        */
+        
         /***
         *** compute density
         ***/
@@ -345,10 +414,28 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         *** compute temperature expansion coeff
         ***  by differentiating above formulae
         ***/
+         double drdt0 = unt1 + 2.0*unt2*tq +
+                  (3.0*unt3 + 4.0*unt4*tq +
+                                    5.0*unt5*t2)*t2 +
+                          (uns1t1 + 2.0*uns1t2*tq +
+                (3.0*uns1t3 + 4.0*uns1t4*tq)*t2 +
+                          (unsqt1 + 2.0*unsqt2*tq)*sqr )*sq;
 
+         double dkdt  =            bup0s0t1 + 2.0*bup0s0t2*tq +
+                 (3.0*bup0s0t3 + 4.0*bup0s0t4*tq)*t2 + 
+                     p(k) *(bup1s0t1 + 2.0*bup1s0t2*tq +
+                                       3.0*bup1s0t3*t2) +
+                     p2(k)*(bup2s0t1 + 2.0*bup2s0t2*tq) +
+                        sq*(bup0s1t1 + 2.0*bup0s1t2*tq +
+                                       3.0*bup0s1t3*t2 +
+                    p(k)  *(bup1s1t1 + 2.0*bup1s1t2*tq) +
+                    p2(k) *(bup2s1t1 + 2.0*bup2s1t2*tq) +
+                       sqr*(bup0sqt1 + 2.0*bup0sqt2*tq));
+
+        /* reordered
         auto drdt0 = unt1 + 2.0*unt2*tq +
-                 (3.0*unt3 + 4.0*unt4*tq +
-                                   5.0*unt5*t2)*t2 +
+                 (3.0*unt3 + (4.0*unt4*tq +
+                                   5.0*unt5*t2))*t2 +
                          (uns1t1 + 2.0*uns1t2*tq +
                (3.0*uns1t3 + 4.0*uns1t4*tq)*t2 +
                           (unsqt1 + 2.0*unsqt2*tq)*sqr )*sq;
@@ -363,12 +450,13 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                    p(k)  *(bup1s1t1 + 2.0*bup1s1t2*tq) +
                    p2(k) *(bup2s1t1 + 2.0*bup2s1t2*tq) +
                            sqr*(bup0sqt1 + 2.0*bup0sqt2*tq));
-
+        */
+        
         auto drhodt = (denomk*(drdt0*bulkMod -
                                p(k)*(unt0+rhosfc)*dkdt*denomk));
 
         auto invdens = 1.0 / density(k,iCell);
-        thermalExpansionCoeff(k,iCell) = -drhodt * invdens;
+        thermalExpansionCoeff(k,iCell) = -drhodt  / density(k,iCell);
 
         /***
         *** compute salinity contraction coeff
@@ -381,13 +469,13 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
         auto drhods = denomk*(drds0*bulkMod -
                               p(k)*(unt0+rhosfc)*dkds*denomk);
 
-        salineContractionCoeff(k,iCell) = drhods*invdens;
+        salineContractionCoeff(k,iCell) = drhods / density(k,iCell);
     });
 
     yakl_update_host(eos_jm::density, h_density);
     yakl_update_host(eos_jm::salineContractionCoeff, h_salineContractionCoeff);
     yakl_update_host(eos_jm::thermalExpansionCoeff, h_thermalExpansionCoeff);
-    yakl::fence();
+    //yakl::fence();
 }
 
 extern "C"

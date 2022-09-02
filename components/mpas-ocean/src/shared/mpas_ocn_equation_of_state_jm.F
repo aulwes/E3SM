@@ -20,6 +20,8 @@
 !>  See Jackett and McDougall, JTECH, Vol.12, pp 381-389, April, 1995.
 !
 !-----------------------------------------------------------------------
+!#undef USE_YAKL
+
 #ifdef __GFORTRAN__
 #define PASTE(a) a
 #define CAT(a,b) PASTE(a)b
@@ -315,6 +317,7 @@ contains
       !-----------------------------------------------------------------
       ! Local variables
       !-----------------------------------------------------------------      
+        integer, save :: cnt = 0
       integer ::          &
          iCell, k,        &! cell and vertical level loop indices
          kTmp, kRef,      &! indices to determine ref level for pressure
@@ -335,6 +338,7 @@ contains
 #endif
 
       real (kind=RKIND) :: &
+        tmp, &
          work1, work2,     &! temporary scalars for calc
          work3, work4,     &!
          tq, sq,           &! adjusted T,S
@@ -479,6 +483,18 @@ contains
 
       endif
 
+!      if ( 0 == cnt .and. mpas_myrank == 0 ) then
+!        print *,' nCells = ',nCells
+!        open(1, file="tracer.dat",status = 'new')
+!        do iCell=1,nCells
+!        do k = 1,nVertLevels
+!            write(1,*) tracerTemp(k,iCell), tracerSalt(k,iCell)
+!        enddo
+!        enddo
+!        close(1)
+!        cnt = cnt + 1
+!     endif
+      
       !allocate(tmpdens(size(density,1),size(density,2)))
       density = 0.0_RKIND
 !#if 0
@@ -488,13 +504,15 @@ contains
       C_DECOMP(tracerTemp)
 
       call mpas_timer_start("fortran ocn_eos_density_only")
-      density = 0.0_RKIND
       call ocn_eos_density_only(mpas_myrank, nCells, nVertLevels, p, p2, &
                         tracerSalt, tracerTemp, density)
       call mpas_timer_stop("fortran ocn_eos_density_only")
 
 #else
 
+      density = 0.0_RKIND
+      !if ( 0 == mpas_myrank) &
+      !print *,' nVertLevels, nCells, density shape = ', nVertLevels, nCells, shape(density)
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector collapse(2) &
       !$acc&   present(density, p, p2)
@@ -573,12 +591,28 @@ contains
          density(k,iCell) = (unt0 + rhosfc)*bulkMod/ &
                             (bulkMod - p(k))
 
-         !if ( abs(tmpdens(k,iCell) - density(k,iCell)) > 1.0e-12 ) &
-          !  print *,mpas_myrank,": expected ", density(k,iCell), ", but got ",tmpdens(k,iCell), &
-           !     " for k,iCell = ",k,iCell
+!        tmp = bup0s0t0 + bup0s0t1*tq +                    &
+!                  (bup0s0t2 + bup0s0t3*tq + bup0s0t4*t2)*t2 + &
+!            p(k) *(bup1s0t0 + bup1s0t1*tq +              &
+!                  (bup1s0t2 + bup1s0t3*tq)*t2)
+!        tmp = density(k,iCell)
+!         if ( 0 == mpas_myrank .and. abs(tmpdens(k,iCell) - tmp) > 1.0e-14 ) &
+!            write(*,'(A,F20.14, 5X, F20.14, 5X, F20.14)') "Diff, expected, got: ", abs(tmpdens(k,iCell) - tmp), tmp,tmpdens(k,iCell)
+!            !print *,mpas_myrank,": expected ", tmp, ", but got ",tmpdens(k,iCell), &
+!             !   " for k,iCell = ",k,iCell
 
       end do
       end do
+
+!      do iCell=1,size(density,2)
+!      do k=1,size(density,1)
+!        tmp = bulkMod
+!         if ( abs(tmpdens(k,iCell) - density(k,iCell)) > 1.0e-14 ) &
+!            print *,mpas_myrank,": expected ", density(k,iCell), ", but got ",tmpdens(k,iCell), &
+!                " for k,iCell = ",k,iCell
+!
+!      end do
+!      end do
       
 #ifndef MPAS_OPENACC
       !$omp end do
@@ -656,7 +690,7 @@ contains
       !-----------------------------------------------------------------
       ! Output variables
       !-----------------------------------------------------------------
-
+        
       integer, intent(out) :: err  ! error flag
 
       real (kind=RKIND), dimension(:,:), intent(out) :: &
@@ -1096,6 +1130,15 @@ contains
 #ifdef MPAS_OPENACC
       !$acc enter data copyin(ocnEqStatePRef)
 #endif
+
+!      if ( mpas_myrank == 0 ) then
+!        open(1, file="ocnEqStatePRef.dat",status = 'new')
+!        do k = 1,nVertLevels
+!            write(1,*) ocnEqStatePRef(k)
+!        enddo
+!        close(1)
+!      endif
+        
 
    !--------------------------------------------------------------------
 
