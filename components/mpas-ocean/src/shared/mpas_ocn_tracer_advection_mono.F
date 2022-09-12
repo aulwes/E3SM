@@ -151,14 +151,14 @@ module ocn_tracer_advection_mono
         integer(c_int), intent(in), value :: nCells
       end subroutine
 
-      subroutine ocn_advect_mono_vert_flux(nCells, mxlvl, vertOrder, &
-                    flxIn, flxOut, tracerCur, workTend) &
+      subroutine ocn_advect_mono_vert_flux(rank,nCells, mxlvl, vertOrder, &
+                    flxIn, flxOut, lowOrderFlx,highOrderFlx, tracerMin,tracerMax,tracerCur, workTend) &
                     bind(C,name="ocn_advect_mono_vert_flux")
         use iso_c_binding
         use mpas_kind_types
-        integer(c_int), intent(in), value :: vertOrder, nCells, mxlvl
-        real(c_double), intent(in), dimension(*) :: flxIn, flxOut
-        real(c_double), intent(in), dimension(*) :: tracerCur, workTend
+        integer(c_int), intent(in), value :: rank,vertOrder, nCells, mxlvl
+        real(c_double), intent(in), dimension(*) :: flxIn, flxOut,lowOrderFlx,highOrderFlx
+        real(c_double), intent(in), dimension(*) :: tracerMin,tracerMax,tracerCur, workTend
       end subroutine
 
       subroutine ocn_advect_mono_update_tend(dt, iTracer, nCells, mxlvl) &
@@ -247,6 +247,9 @@ module ocn_tracer_advection_mono
          wgtTmp,            &! vertical temporaries for
          flxTmp, sgnTmp      !   high-order flux computation
 
+      real (kind=RKIND), dimension(:,:), allocatable :: &
+        tmphof,tmplof
+        
       real (kind=RKIND), dimension(:,:), allocatable :: &
          tracerCur,     &! reordered current tracer
          tracerMax,     &! max tracer in neighbors for limiting
@@ -752,8 +755,8 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('flux accumulate')
 #endif
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
         call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt,transTend(:,:,iTracer), tracerCur)
 
@@ -919,8 +922,8 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('cell init vert')
 #endif
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
         call ocn_advect_mono_cell_init(nCellsAll)
 
@@ -953,11 +956,15 @@ module ocn_tracer_advection_mono
         ! Need all owned and 1 halo cells
         nCells = nCellsHalo(1)
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
         mxlvl = maxval(maxLevelCell)
-        call ocn_advect_mono_vert_flux(nCells,mxlvl,vertOrder,flxIn,flxOut,tracerCur,workTend)
+        allocate(tmphof(size(highOrderFlx,1),size(highOrderFlx,2)))
+        allocate(tmplof(size(highOrderFlx,1),size(highOrderFlx,2)))
+        call ocn_advect_mono_vert_flux(mpas_myrank,nCells,mxlvl,vertOrder,flxIn,flxOut,&
+                !tmplof,tmphof,tracerMin,tracerMax,tracerCur,workTend)
+                lowOrderFlx,highOrderFlx,tracerMin,tracerMax,tracerCur,workTend)
 
 #else
 
@@ -1061,8 +1068,25 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 #endif
+        do iCell = 1, size(highOrderFlx,2)
+        do k = 1,size(highOrderFlx,1)
+            if ( abs(tmphof(k,iCell) - highOrderFlx(k,iCell)) > 1.0e-12) then
+                print *,mpas_myrank, ': highOrderFlx expected, got = ', highOrderFlx(k,iCell), tmphof(k,iCell), &
+                    k,iCell
+                exit
+            endif
+            if ( abs(tmplof(k,iCell) - lowOrderFlx(k,iCell)) > 1.0e-12) then
+                print *,mpas_myrank, ': lowOrderFlx expected, got = ', lowOrderFlx(k,iCell), tmplof(k,iCell), &
+                    k,iCell
+                exit
+            endif
+        enddo
+        enddo
 
+        
 #endif  ! USE_YAKL
+
+        deallocate(tmphof,tmplof)
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('vertical flux')
@@ -1070,8 +1094,8 @@ module ocn_tracer_advection_mono
         ! Need one halo of cells around owned cells
         nCells = nCellsHalo(1) ! Need one halo around owned cells
         mxlvl = maxval(maxLevelCell)
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
        call ocn_advect_mono_update_tend(dt, iTracer, nCells, mxlvl)
 
@@ -1182,7 +1206,7 @@ module ocn_tracer_advection_mono
 #endif
 
 #endif  ! USE_YAKL
-
+        
         ! Compute advection diagnostics and monotonicity checks if requested
 #ifdef _ADV_TIMERS
         call mpas_timer_start('advect diags vert')
