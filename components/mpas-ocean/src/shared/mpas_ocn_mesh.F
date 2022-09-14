@@ -644,7 +644,11 @@ contains
       invAreaCell(nCellsAll+1) = 0.0_RKIND
 
       do n = 1, size(areaTriangle)
-         invAreaTriangle(n) = 1.0_RKIND / areaTriangle(n)
+         if ( abs(areaTriangle(n)) > 1.0e-10 ) then
+            invAreaTriangle(n) = 1.0_RKIND / areaTriangle(n)
+         else
+            invAreaTriangle(n) = 0.0_RKIND
+         endif
       end do
 
 #ifdef USE_YAKL

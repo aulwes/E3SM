@@ -7,10 +7,8 @@
 
 namespace timeint_split
 {
-yakl::yakl_stream_t     stream1 = 0;
-yakl::yakl_stream_t     stream2 = 0;
-yakl::yakl_event_t     event1 = 0;
-yakl::yakl_event_t     event2 = 0;
+yakl::Stream     stream1;
+yakl::Stream     stream2;
 
 d_double_1d_t   * barotropicForcing
                 ;
@@ -33,10 +31,8 @@ void ocn_time_int_init()
 {    
     using namespace timeint_split;
     
-    yakl::streamCreate(&stream1);
-    yakl::streamCreate(&stream2);
-    yakl::eventCreate(&event1);
-    yakl::eventCreate(&event2);
+    stream1 = yakl::create_stream();
+    stream2 = yakl::create_stream();
 
     /*
     std::cerr << " barotropicForcing shape = " << c_barotropicForcing.shape[0] <<
@@ -126,7 +122,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
     {
         // initialize layerThicknessEdge to avoid divide by zero and NaN problems.
         normalVelocity(k, iEdge) = 0.0;
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::DefaultLaunchConfig().set_stream(stream1));
 
     
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nEdges},{1,nVertLevels}) ,
@@ -145,7 +141,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
           }
           normalVelocity(k,iEdge) = nvel;
         }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::DefaultLaunchConfig().set_stream(stream1));
     yakl_update_host(diag_solve::normalVelocity, h_normalVelocity, stream1);
 
 
@@ -182,7 +178,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
         }
 
     
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::DefaultLaunchConfig().set_stream(stream1));
     yakl_update_host(timeint_split::barotropicForcing, h_barotropicForcing, stream1);
 
     
@@ -211,7 +207,7 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
                  dt * barotropicForcing(iEdge));
 
         }
-    }, yakl::LaunchConfig<>(), stream1);
+    }, yakl::DefaultLaunchConfig().set_stream(stream1));
 
     yakl_update_host(timeint_split::normalBaroclinicVelocityNew, h_normalBaroclinicVelocityNew, stream1);
     

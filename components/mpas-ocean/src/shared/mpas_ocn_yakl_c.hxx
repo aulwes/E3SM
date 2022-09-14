@@ -74,7 +74,7 @@ yakl_wrap_array(const char * name, R * var_p, T...dims)
 template <typename R, int N>
 void
 yakl_update_host(yakl::Array<R,N,yakl::memDefault,yakl::styleFortran> * d_var,
-                 R * h_var_p,yakl::yakl_stream_t stream = 0 )
+                 R * h_var_p,yakl::Stream stream = yakl::Stream() )
 {
     typedef yakl::Array<R,N,yakl::memHost,yakl::styleFortran>  host_type;
 
@@ -87,7 +87,7 @@ yakl_update_host(yakl::Array<R,N,yakl::memDefault,yakl::styleFortran> * d_var,
 template <typename R, int N>
 void
 yakl_update_host_from_host(yakl::Array<R,N,yakl::memHost,yakl::styleFortran> & d_var,
-                 R * h_var_p,yakl::yakl_stream_t stream = 0 )
+                 R * h_var_p,yakl::Stream stream = 0 )
 {
     typedef yakl::Array<R,N,yakl::memHost,yakl::styleFortran>  host_type;
     host_type   h_var("h_var_p", h_var_p, getBounds(d_var));
@@ -98,7 +98,7 @@ yakl_update_host_from_host(yakl::Array<R,N,yakl::memHost,yakl::styleFortran> & d
 template <typename R, int N>
 void
 yakl_update_device(yakl::Array<R,N,yakl::memDefault,yakl::styleFortran> * d_var,
-                 R * h_var_p,yakl::yakl_stream_t stream = 0 )
+                 R * h_var_p,yakl::Stream stream = yakl::Stream() )
 {
     typedef yakl::Array<R,N,yakl::memHost,yakl::styleFortran>  host_type;
 
@@ -121,13 +121,8 @@ yakl_create_int(const char * name, T...Dims)
     return yakl_create_array<int>(name, Dims...);
 }
 
-void yakl_stream_create(yakl::yakl_stream_t * stream);
-void yakl_stream_destroy(yakl::yakl_stream_t stream);
-
-void yakl_event_create(yakl::yakl_event_t * event);
-void yakl_event_destroy(yakl::yakl_event_t event);
-
-void yakl_record_event(yakl::yakl_event_t, yakl::yakl_stream_t);
-void yakl_stream_wait(yakl::yakl_stream_t, yakl::yakl_event_t);
+template <typename R, int N>
+void
+yakl_delete(yakl::Array<R,N,yakl::memDefault,yakl::styleFortran> * array) {delete array;}
 
 #endif

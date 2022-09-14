@@ -235,6 +235,11 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_pressure') :: c_pressure
    type(ocn_yakl_type), BIND(C, NAME='c_surfacePressure') :: c_surfacePressure
    type(ocn_yakl_type), BIND(C, NAME='c_barotropicForcing') :: c_barotropicForcing
+
+
+   type(ocn_yakl_type), BIND(C, NAME='c_tracersSurfaceLayerValue') :: c_tracersSurfaceLayerValue
+   type(ocn_yakl_type), BIND(C, NAME='c_indexSurfaceLayerDepth') :: c_indexSurfaceLayerDepth
+   type(ocn_yakl_type), BIND(C, NAME='c_normalVelocitySurfaceLayer') :: c_normalVelocitySurfaceLayer
 #endif
 
    !--------------------------------------------------------------------
@@ -876,6 +881,10 @@ contains
       C_DECOMP(montgomeryPotential)
       C_DECOMP(pressure)
       C_DECOMP(surfacePressure)
+
+      C_DECOMP(tracersSurfaceLayerValue)
+      C_DECOMP(indexSurfaceLayerDepth)
+      C_DECOMP(normalVelocitySurfaceLayer)
 #endif
 
       !$acc enter data create(                                         &

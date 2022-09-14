@@ -44,9 +44,9 @@ module ocn_tracer_advection_shared
    use ocn_config
    use ocn_mesh
    use iso_c_binding
-!#ifdef USE_YAKL
+#ifdef USE_YAKL
    use ocn_yakl
-!#endif
+#endif
 
    implicit none
    private

@@ -56,7 +56,6 @@ OBJS = mpas_ocn_init_routines.o \
 	   mpas_ocn_constants.o \
 	   mpas_ocn_config.o \
 	   mpas_ocn_forcing.o \
-	   mpas_ocn_yakl.o \
 	   mpas_ocn_surface_bulk_forcing.o \
 	   mpas_ocn_surface_land_ice_fluxes.o \
 	   mpas_ocn_effective_density_in_land_ice.o \
@@ -74,6 +73,7 @@ OBJS = mpas_ocn_init_routines.o \
 
 ifeq "$(USE_YAKL)" "true"
 	OBJS += \
+	   mpas_ocn_yakl.o \
 	   mpas_ocn_diagnostics_yakl_c.o \
 	   mpas_ocn_time_int_split.o \
 	   mpas_ocn_equation_of_state_jm_c.o \
@@ -93,7 +93,11 @@ mpas_ocn_diagnostics.o: mpas_ocn_thick_ale.o mpas_ocn_equation_of_state.o mpas_o
 
 mpas_ocn_diagnostics_variables.o: mpas_ocn_config.o mpas_ocn_mesh.o
 
+ifeq "$(USE_YAKL)" "true"
 mpas_ocn_mesh.o: mpas_ocn_config.o mpas_ocn_yakl.o
+else
+mpas_ocn_mesh.o: mpas_ocn_config.o
+endif
 
 mpas_ocn_mesh_c.o: mpas_ocn_mesh_c.hxx mpas_ocn_yakl_c.hxx mpas_ocn_yakl_types.hxx
 

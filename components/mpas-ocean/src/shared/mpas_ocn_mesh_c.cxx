@@ -57,8 +57,8 @@ d_double_2d_t   * edgeSignOnCell,
                 * advCoefs,
                 * advCoefs3rd,
                 * weightsOnEdge,
-                * advMaskHighOrder,
-                * highOrderAdvectionMask
+                * advMaskHighOrder
+                //* highOrderAdvectionMask
                 ;
 }
 
@@ -87,7 +87,7 @@ extern "C" double * c_invAreaCell = nullptr;
 extern "C" double * c_invAreaTriangle = nullptr;
 extern "C" double * c_edgeSignOnCell = nullptr;
 extern "C" double * c_edgeSignOnVertex = nullptr;
-extern "C" double * c_highOrderAdvectionMask = nullptr;
+//extern "C" double * c_highOrderAdvectionMask = nullptr;
 extern "C" double * c_bottomDepth = nullptr;
 
 extern "C" ocn_yakl_type c_nAdvCellsForEdge;
@@ -189,7 +189,7 @@ void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLe
     edgesOnVertex = yakl_wrap_array("edgesOnVertex", c_edgesOnVertex, vertexDegree, nVertices+1);
     edgeSignOnCell = yakl_wrap_array("edgeSignOnCell", c_edgeSignOnCell, maxNEdges, nCellsAll+1);
     edgeSignOnVertex = yakl_wrap_array("edgeSignOnVertex", c_edgeSignOnVertex, esonDim, nVertices+1);
-    highOrderAdvectionMask = yakl_wrap_array("highOrderAdvectionMask", c_highOrderAdvectionMask, nVertLevels, nEdgesAll+1);
+    //highOrderAdvectionMask = yakl_wrap_array("highOrderAdvectionMask", c_highOrderAdvectionMask, nVertLevels, nEdgesAll+1);
     nEdgesOnCell = yakl_wrap_array("nEdgesOnCell", c_nEdgesOnCell, nCellsAll+1);
     nEdgesOnEdge = yakl_wrap_array("nEdgesOnEdge", c_nEdgesOnEdge, nEdgesAll+1);
     invAreaCell = yakl_wrap_array("invAreaCell", c_invAreaCell, nCellsAll);
@@ -209,7 +209,7 @@ void ocn_mesh_yakl_update()
 {
     yakl_update_device(mesh::edgeSignOnCell, c_edgeSignOnCell);
     yakl_update_device(mesh::edgeSignOnVertex, c_edgeSignOnVertex);
-    yakl_update_device(mesh::highOrderAdvectionMask, c_highOrderAdvectionMask);
+//    yakl_update_device(mesh::highOrderAdvectionMask, c_highOrderAdvectionMask);
     yakl_update_device(mesh::maxLevelCell, c_maxLevelCell);
     if ( nullptr == static_cast<int *>(c_nAdvCellsForEdge.ptr) )
         std::cerr << " Error: c_nAdvCellsForEdge is null" << std::endl;

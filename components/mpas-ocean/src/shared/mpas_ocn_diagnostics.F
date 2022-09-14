@@ -99,6 +99,7 @@ module ocn_diagnostics
 
 #ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_layerThickness') :: c_layerThickness
+   type(ocn_yakl_type), BIND(C, NAME='c_activeTracers') :: c_activeTracers
 #endif
 
 !***********************************************************************
@@ -252,6 +253,7 @@ contains
 #endif
 
 #ifdef USE_YAKL
+      C_DECOMP(activeTracers)
       call ocn_diagnostics_update_device(normalVelocity,layerThickness)
 #endif
 
@@ -1303,7 +1305,7 @@ contains
                     vorticityGradientTangentialComponent)
 
       endif
-
+!#if 1
 #ifndef USE_YAKL
       deallocate(normalizedPlanetaryVorticityVertex, &
                  normalizedRelativeVorticityVertex)
@@ -1385,8 +1387,8 @@ contains
       !
       coef = -gravity / rho_sw
       nCells = nCellsHalo( 2 )
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
       call ocn_diagnostic_solve_rich(coef, nCells, BruntVaisalaFreqTop, RiTopOfCell)
 #else
 #ifdef MPAS_OPENACC
@@ -1743,7 +1745,7 @@ contains
 #ifdef USE_YAKL
       nCellsH = nCellsHalo( 2 )
       nEdges = nEdgesHalo( 2 )
-
+!#warning using yakl ocn_diagnostic_solve_vort_vel
       call ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, normalTransportVelocity, &
                                             vertVelocityTop, vertTransportVelocityTop, &
                                             vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
