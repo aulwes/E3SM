@@ -740,6 +740,41 @@ crusher-cray-yakl:
 	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
 	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
+crusher-yakl-cpu:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"CXX_SERIAL = hipcc" \
+        "FFLAGS_FPIEEE = -h flex_mp=rigorous" \
+        "FFLAGS_PROMOTION = -s real64" \
+	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
+	"CFLAGS_OPT = -O3 -g " \
+	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH " \
+	"LDFLAGS_OPT = -O3 -g -fopenmp -lstdc++" \
+	"FFLAGS_GPU = -fopenmp" \
+	"LDFLAGS_GPU = -fopenmp " \
+	"FFLAGS_DEBUG = -O0 -g -h byteswapio -ef -f free -Ktrap=divz,fp,inv,ovf " \
+	"CFLAGS_DEBUG = -O0 -g " \
+	"CXXFLAGS_DEBUG = -O0 -g -std=c++17 -DYAKL_ARCH " \
+	"LDFLAGS_DEBUG = -O0 -g -Ktrap=divz,fp,inv,ovf -lstdc++ " \
+	"FFLAGS_OMP = -mp" \
+	"CFLAGS_OMP = -fopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+    	"USE_SHTNS = $(USE_SHTNS)" \
+	"YAKL_CXXFLAGS = " \
+	"USE_YAKL = $(USE_YAKL)" \
+	"YAKL_ARCH =" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
 spock-cray-offload:
 	( $(MAKE) all \
 	"FC_PARALLEL = ftn" \
@@ -1221,11 +1256,12 @@ pio_test:
 	@# Check that what the user has specified agrees with the PIO library version that was detected
 	@#
 ifeq "$(USE_PIO2)" "true"
-	@($(FC) pio2.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio2.out &> /dev/null) || \
+	@($(FC) pio2.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio2.out &> pio2.txt) || \
 	(echo "************ ERROR ************"; \
 	 echo "PIO 1 was detected, but USE_PIO2=true was specified in the make command"; \
 	 echo "************ ERROR ************"; \
-	 rm -rf pio[12].f90 pio[12].out; exit 1)
+	  exit 1)
+	 #rm -rf pio[12].f90 pio[12].out; exit 1)
 else
 	@($(FC) pio1.f90 $(FCINCLUDES) $(FFLAGS) $(LDFLAGS) $(LIBS) -o pio1.out &> /dev/null) || \
 	(echo "************ ERROR ************"; \
