@@ -689,10 +689,10 @@ spock-cray-yakl:
 	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
 	"FFLAGS_GPU = -fopenmp -I./YAKL" \
 	"LDFLAGS_GPU = -fopenmp " \
-	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
+	"FFLAGS_DEBUG = -O0 -g -h byteswapio -ef -f free -Ktrap=divz,fp,inv,ovf " \
 	"CFLAGS_DEBUG = -O0 -g -Weverything" \
-	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
-	"LDFLAGS_DEBUG = -O0 -g" \
+        "CXXFLAGS_DEBUG = -O0 -g -std=c++17 -DYAKL_ARCH " \
+        "LDFLAGS_DEBUG = -O0 -g -Ktrap=divz,fp,inv,ovf -lstdc++ " \
 	"FFLAGS_OMP = -mp" \
 	"CFLAGS_OMP = -fopenmp" \
 	"PICFLAG = -fpic" \
@@ -721,10 +721,8 @@ crusher-cray-yakl:
 	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
 	"FFLAGS_GPU = -fopenmp" \
 	"LDFLAGS_GPU = -fopenmp " \
-	"FFLAGS_DEBUG = -O0 -g -Mbounds -Mchkptr -Mbyteswapio -Mfreeform -Mstandard" \
-	"CFLAGS_DEBUG = -O0 -g -Weverything" \
-	"CXXFLAGS_DEBUG = -O0 -g -Weverything" \
-	"LDFLAGS_DEBUG = -O0 -g" \
+        "CXXFLAGS_DEBUG = -O0 -g -std=c++17 -DYAKL_ARCH " \
+        "LDFLAGS_DEBUG = -O0 -g -Ktrap=divz,fp,inv,ovf -lstdc++ " \
 	"FFLAGS_OMP = -mp" \
 	"CFLAGS_OMP = -fopenmp" \
 	"PICFLAG = -fpic" \

@@ -140,8 +140,10 @@ void ocn_advect_mono_pre(double dt, double * h_hProv, double * h_hProvInv, doubl
     YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
     YAKL_SCOPE(nCells, mesh::nCellsAll);
 
-    /*
-    original Fortran loop structure
+//#if 1
+#ifdef MPAS_DEBUG
+
+    // original Fortran loop structure
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells) ,
     YAKL_LAMBDA(int iCell) {
          double invAreaCell1 = dt/areaCell(iCell);
@@ -171,7 +173,8 @@ void ocn_advect_mono_pre(double dt, double * h_hProv, double * h_hProvInv, doubl
                                 dt*w(k,iCell) + dt*w(k+1, iCell));
          }
     }, yakl::LaunchConfig<>());
-    */
+
+#else
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
@@ -196,7 +199,8 @@ void ocn_advect_mono_pre(double dt, double * h_hProv, double * h_hProvInv, doubl
         }        
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
-    
+#endif
+
     yakl_update_host(tracer_mono::hProvInv, h_hProvInv);
     yakl_update_host(tracer_mono::hNewInv, h_hNewInv);
     yakl_update_host(tracer_mono::hProv, h_hProv);
@@ -313,18 +317,6 @@ void ocn_advect_mono_set_flux(int nCells, int nEdges, double * h_tracerCur, doub
             lowOrderFlx(k,iEdge) = dvEdge(iEdge) * 
                (DMAX(0.0,normalThicknessFlux(k,iEdge))*tracerCur(k,cell1)
               + DMIN(0.0,normalThicknessFlux(k,iEdge))*tracerCur(k,cell2));
-              if ( std::isnan(dvEdge(iEdge)) ) {
-                std::cerr << " ocn_advect_mono_set_flux Error: dvEdge(iEdge) isnan for  = " << " " << iEdge << std::endl;
-                exit(-1);
-              }
-              if ( std::isnan(normalThicknessFlux(k,iEdge)) ) {
-                std::cerr << " ocn_advect_mono_set_flux Error: normalThicknessFlux(k,iEdge) isnan for  = " << k << " " << iEdge << std::endl;
-                exit(-1);
-              }
-              if ( std::isnan(tracerCur(k,cell1)) ) {
-                std::cerr << " ocn_advect_mono_set_flux Error: tracerCur(k,cell1) isnan for  = " << k << " " << cell1 << std::endl;
-                exit(-1);
-              }
 
             highOrderFlx(k, iEdge) = highOrderFlx(k, iEdge)
                                    + tracerWeight * (tracerCur(k, cell1)
@@ -382,6 +374,9 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCellsH
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
+
+//#if 1
+#ifdef MPAS_DEBUG
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsHalo) ,
     YAKL_LAMBDA(int iCell)
     {
@@ -437,7 +432,8 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCellsH
         }
     }, yakl::LaunchConfig<>());
 
-    /*
+#else
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
     {
@@ -506,14 +502,10 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCellsH
                                     min(flxOut(k,cell1), flxIn (k,cell2))
                                   + min(0.0,highOrderFlx(k,iEdge))*
                                     min(flxIn (k,cell1), flxOut(k,cell2));
-              if ( std::isnan(highOrderFlx(k,iEdge)) )  {
-                std::cerr << " ocn_advect_mono_set_flux_inout Error: highOrderFlx isnan for k,iEdge = " << k << " " << iEdge << std::endl;
-                exit(-1);
-              }
         }
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
-    */
+#endif
     
     yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
     yakl_update_host(tracer_mono::flxIn, h_flxIn);
@@ -591,7 +583,7 @@ void ocn_advect_mono_compute_tend(int iTracer, int nCells, double dt,
 }
 
 extern "C"
-void ocn_advect_mono_vert_flux(int rank, int nCells, int mxlvl, int vertOrder,
+void ocn_advect_mono_vert_flux(int rank, int nCells, int vertOrder,
                                 double * h_flxIn, double * h_flxOut,
                                 double * h_lowOrderFlx, double * h_highOrderFlx,
                                 double * h_tracerMin, double * h_tracerMax,
@@ -703,6 +695,9 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int mxlvl, int vertOrder,
         break;
     }
 
+//#if 1
+#ifdef MPAS_DEBUG
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCellsAll) ,
     YAKL_LAMBDA(int iCell) {
         int kmin = minLevelCell(iCell);
@@ -764,7 +759,8 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int mxlvl, int vertOrder,
         }
     }, yakl::LaunchConfig<>());
 
-    /*
+#else
+
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
     {
@@ -818,9 +814,6 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int mxlvl, int vertOrder,
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
     
-    yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
-    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
-
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
     {
@@ -841,7 +834,7 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int mxlvl, int vertOrder,
 
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
-    */
+#endif // MPAS_DEBUG
 
 
     yakl_update_host(tracer_mono::flxIn, h_flxIn);

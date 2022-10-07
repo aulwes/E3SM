@@ -17,7 +17,7 @@
 !>  using a Flux Corrected Transport (FCT) algorithm
 !
 !-----------------------------------------------------------------------
-!#undef USE_YAKL
+#undef USE_YAKL
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -151,12 +151,12 @@ module ocn_tracer_advection_mono
         integer(c_int), intent(in), value :: nCells
       end subroutine
 
-      subroutine ocn_advect_mono_vert_flux(rank,nCells, mxlvl, vertOrder, &
+      subroutine ocn_advect_mono_vert_flux(rank,nCells, vertOrder, &
                     flxIn, flxOut, lowOrderFlx,highOrderFlx, tracerMin,tracerMax,tracerCur, workTend) &
                     bind(C,name="ocn_advect_mono_vert_flux")
         use iso_c_binding
         use mpas_kind_types
-        integer(c_int), intent(in), value :: rank,vertOrder, nCells, mxlvl
+        integer(c_int), intent(in), value :: rank,vertOrder, nCells
         real(c_double), intent(in), dimension(*) :: flxIn, flxOut,lowOrderFlx,highOrderFlx
         real(c_double), intent(in), dimension(*) :: tracerMin,tracerMax,tracerCur, workTend
       end subroutine
@@ -420,13 +420,8 @@ module ocn_tracer_advection_mono
 !#if 0
 #ifdef USE_YAKL
 
-        if ( isnan(normalThicknessFlux(1,1)) ) &
-            print *," pre ocn_advect_mono_set_flux: normalThicknessFlux is nan", normalThicknessFlux(1,1)
         call ocn_advect_mono_set_flux(nCells,nEdges,tracerCur,tracerMin,tracerMax, &
                                       lowOrderFlx,highOrderFlx)
-        if ( isnan(lowOrderFlx(1,1)) ) &
-            print *," post ocn_advect_mono_set_flux: lowOrderFlx is nan"
-
 #else
 
 #ifdef _ADV_TIMERS
@@ -514,7 +509,6 @@ module ocn_tracer_advection_mono
               coef1 = advCoefs       (i,iEdge)
               coef3 = advCoefs3rd    (i,iEdge)*coef3rdOrder
               do k = minLevelCell(iCell), maxLevelCell(iCell)
-                 !flxTmp(k) = flxTmp(k) + normalThicknessFlux(k,iEdge)
                  flxTmp(k) = flxTmp(k) + tracerCur(k,iCell)* &
                              wgtTmp(k)*(coef1 + coef3*sgnTmp(k))
               end do ! k loop
@@ -564,15 +558,14 @@ module ocn_tracer_advection_mono
 #endif
 
         ! Initialize flux arrays for all cells
-        allocate(tmp_hf(size(highOrderFlx,1),size(highOrderFlx,2)))
-        allocate(tmp_wt(size(workTend,1),size(workTend,2)))
-        allocate(tmp_in(size(flxIn,1),size(flxIn,2)))
-        allocate(tmp_out(size(flxOut,1),size(flxOut,2)))
+!        allocate(tmp_hf(size(highOrderFlx,1),size(highOrderFlx,2)))
+!        allocate(tmp_wt(size(workTend,1),size(workTend,2)))
+!        allocate(tmp_in(size(flxIn,1),size(flxIn,2)))
+!        allocate(tmp_out(size(flxOut,1),size(flxOut,2)))
 !#if 0
 #ifdef USE_YAKL
 
         call ocn_advect_mono_set_flux_inout(mpas_myrank,nCellsAll, nCellsHalo(1), nEdgesAll, dt, &
-!                    tmp_hf, tmp_wt,tmp_in,tmp_out)
                     highOrderFlx, workTend, flxIn, flxOut)
 
 #else
@@ -647,13 +640,13 @@ module ocn_tracer_advection_mono
 
            ! Upwind fluxes are accumulated in workTend
 !           if ( 0 == mpas_myrank) then
-           do k = minLevelCell(iCell), maxLevelCell(iCell)
-                if ( abs(tmp_wt(k,iCell) - workTend(k,iCell)) > 1.0e-14 ) then
-                    print *, mpas_myrank, ': workTend error: expected, got = ', workTend(k,iCell), tmp_wt(k,iCell), &
-                        ' for k,iCell = ', k,iCell
-                    call exit(-1)
-                endif
-           end do
+!           do k = minLevelCell(iCell), maxLevelCell(iCell)
+!                if ( abs(tmp_wt(k,iCell) - workTend(k,iCell)) > 1.0e-14 ) then
+!                    print *, mpas_myrank, ': workTend error: expected, got = ', workTend(k,iCell), tmp_wt(k,iCell), &
+!                        ' for k,iCell = ', k,iCell
+!                    call exit(-1)
+!                endif
+!           end do
 !           endif
 
            ! Build the factors for the FCT
@@ -677,16 +670,6 @@ module ocn_tracer_advection_mono
                             (tracerUpwindNew - tracerMinNew + eps)
               flxOut(k,iCell) = min(1.0_RKIND, &
                                 max(0.0_RKIND, scaleFactor))
-                if ( abs(tmp_in(k,iCell) - flxIn(k,iCell)) > 1.0e-14 ) then
-                    print *, mpas_myrank, ': workTend error: expected, got = ', flxIn(k,iCell), tmp_in(k,iCell), &
-                        ' for k,iCell = ', k,iCell
-                    call exit(-1)
-                endif
-                if ( abs(tmp_out(k,iCell) - flxOut(k,iCell)) > 1.0e-14 ) then
-                    print *, mpas_myrank, ': workTend error: expected, got = ', flxOut(k,iCell), tmp_out(k,iCell), &
-                        ' for k,iCell = ', k,iCell
-                    call exit(-1)
-                endif
            end do ! k loop
 
            ! if ( 0 == mpas_myrank .and. iCell == 7 ) &
@@ -734,10 +717,10 @@ module ocn_tracer_advection_mono
                                       min(flxOut(k,cell1), flxIn (k,cell2)) &
                                     + min(0.0_RKIND,highOrderFlx(k,iEdge))* &
                                       min(flxIn (k,cell1), flxOut(k,cell2))
-                if ( abs(tmp_hf(k,iEdge) - highOrderFlx(k,iEdge)) > 1.0e-14 ) then
-                    print *, ' highOrderFlx error 2: expected, got = ', highOrderFlx(k,iCell), tmp_hf(k,iCell)
-                    call exit(-1)
-                endif
+!                if ( abs(tmp_hf(k,iEdge) - highOrderFlx(k,iEdge)) > 1.0e-14 ) then
+!                    print *, ' highOrderFlx error 2: expected, got = ', highOrderFlx(k,iCell), tmp_hf(k,iCell)
+!                    call exit(-1)
+!                endif
            end do ! k loop
         end do ! iEdge loop
 #ifndef MPAS_OPENACC
@@ -747,8 +730,8 @@ module ocn_tracer_advection_mono
 
 #endif  !  USE_YAKL
 
-        deallocate(tmp_wt,tmp_in,tmp_out, tmp_hf)
-        
+!        deallocate(tmp_wt,tmp_in,tmp_out, tmp_hf)
+
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('rescale horiz fluxes')
@@ -796,12 +779,12 @@ module ocn_tracer_advection_mono
               ! workTend  on RHS is total horiz advection tendency
               ! tracerCur on LHS is provisional tracer after
               !                     horizontal fluxes only.
-              if ( isnan(layerThickness(k,iCell)) ) &
-                print *,mpas_myrank, ": layerThickness is nan"
-              if ( isnan(workTend(k,iCell)) ) &
-                print *,mpas_myrank, ": workTend is nan"
-              if ( isnan(hProvInv(k,iCell)) ) &
-                print *,mpas_myrank, ": hProvInv is nan"
+!              if ( isnan(layerThickness(k,iCell)) ) &
+!                print *,mpas_myrank, ": layerThickness is nan"
+!              if ( isnan(workTend(k,iCell)) ) &
+!                print *,mpas_myrank, ": workTend is nan"
+!              if ( isnan(hProvInv(k,iCell)) ) &
+!                print *,mpas_myrank, ": hProvInv is nan"
                 
               tracerCur(k,iCell) = (tracerCur(k,iCell)* &
                                     layerThickness(k,iCell) &
@@ -959,11 +942,7 @@ module ocn_tracer_advection_mono
 !#if 0
 #ifdef USE_YAKL
 
-        mxlvl = maxval(maxLevelCell)
-        allocate(tmphof(size(highOrderFlx,1),size(highOrderFlx,2)))
-        allocate(tmplof(size(highOrderFlx,1),size(highOrderFlx,2)))
-        call ocn_advect_mono_vert_flux(mpas_myrank,nCells,mxlvl,vertOrder,flxIn,flxOut,&
-                !tmplof,tmphof,tracerMin,tracerMax,tracerCur,workTend)
+        call ocn_advect_mono_vert_flux(mpas_myrank,nCells,vertOrder,flxIn,flxOut,&
                 lowOrderFlx,highOrderFlx,tracerMin,tracerMax,tracerCur,workTend)
 
 #else
@@ -1068,25 +1047,25 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 #endif
-        do iCell = 1, size(highOrderFlx,2)
-        do k = 1,size(highOrderFlx,1)
-            if ( abs(tmphof(k,iCell) - highOrderFlx(k,iCell)) > 1.0e-12) then
-                print *,mpas_myrank, ': highOrderFlx expected, got = ', highOrderFlx(k,iCell), tmphof(k,iCell), &
-                    k,iCell
-                exit
-            endif
-            if ( abs(tmplof(k,iCell) - lowOrderFlx(k,iCell)) > 1.0e-12) then
-                print *,mpas_myrank, ': lowOrderFlx expected, got = ', lowOrderFlx(k,iCell), tmplof(k,iCell), &
-                    k,iCell
-                exit
-            endif
-        enddo
-        enddo
+!        do iCell = 1, size(highOrderFlx,2)
+!        do k = 1,size(highOrderFlx,1)
+!            if ( abs(tmphof(k,iCell) - highOrderFlx(k,iCell)) > 1.0e-12) then
+!                print *,mpas_myrank, ': highOrderFlx expected, got = ', highOrderFlx(k,iCell), tmphof(k,iCell), &
+!                    k,iCell
+!                exit
+!            endif
+!            if ( abs(tmplof(k,iCell) - lowOrderFlx(k,iCell)) > 1.0e-12) then
+!                print *,mpas_myrank, ': lowOrderFlx expected, got = ', lowOrderFlx(k,iCell), tmplof(k,iCell), &
+!                    k,iCell
+!                exit
+!            endif
+!        enddo
+!        enddo
 
         
 #endif  ! USE_YAKL
 
-        deallocate(tmphof,tmplof)
+!        deallocate(tmphof,tmplof)
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('vertical flux')
