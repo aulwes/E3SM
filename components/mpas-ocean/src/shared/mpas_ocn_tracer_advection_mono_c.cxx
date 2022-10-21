@@ -48,7 +48,9 @@ d_double_2d_t   * hProvInv,
                 * w
                 ;
                 
-d_double_3d_t   * tend
+d_double_3d_t   * tend,
+                * activeTracerVerticalAdvectionTendency,
+                * activeTracerVerticalAdvectionTopFlux
                 ;
 
 };
@@ -201,10 +203,10 @@ void ocn_advect_mono_pre(double dt, double * h_hProv, double * h_hProvInv, doubl
     }, yakl::LaunchConfig<>());
 #endif
 
-    yakl_update_host(tracer_mono::hProvInv, h_hProvInv);
-    yakl_update_host(tracer_mono::hNewInv, h_hNewInv);
-    yakl_update_host(tracer_mono::hProv, h_hProv);
-    yakl::fence();
+//    yakl_update_host(tracer_mono::hProvInv, h_hProvInv);
+//    yakl_update_host(tracer_mono::hNewInv, h_hNewInv);
+//    yakl_update_host(tracer_mono::hProv, h_hProv);
+//    yakl::fence();
 
 }
 
@@ -328,11 +330,11 @@ void ocn_advect_mono_set_flux(int nCells, int nEdges, double * h_tracerCur, doub
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
-    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
-    yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
-    yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
-    yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
-    yakl::fence();
+//    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
+//    yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
+//    yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
+//    yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
+//    yakl::fence();
 }
 
 extern "C"
@@ -507,17 +509,18 @@ void ocn_advect_mono_set_flux_inout(int mpas_myrank, int initNCells, int nCellsH
     }, yakl::LaunchConfig<>());
 #endif
     
-    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
-    yakl_update_host(tracer_mono::flxIn, h_flxIn);
-    yakl_update_host(tracer_mono::flxOut, h_flxOut);
-    yakl_update_host(tracer_mono::workTend, h_workTend);
-    yakl::fence();
+//    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
+//    yakl_update_host(tracer_mono::flxIn, h_flxIn);
+//    yakl_update_host(tracer_mono::flxOut, h_flxOut);
+//    yakl_update_host(tracer_mono::workTend, h_workTend);
+//    yakl::fence();
 }
 
 
 extern "C"
-void ocn_advect_mono_compute_tend(int iTracer, int nCells, double dt, 
-                                double * h_tend, double * h_tracerCur)
+void ocn_advect_mono_compute_tend(int iTracer, int nCells, double dt 
+                                )
+                                  //double * h_tend, double * h_tracerCur)
 {
     using yakl::COLON;
     
@@ -572,22 +575,23 @@ void ocn_advect_mono_compute_tend(int iTracer, int nCells, double dt,
               //                    + dt*workTend(k,iCell))*hProvInv(k,iCell);
             tracerCur(k,iCell) = (tracerCur(k,iCell)*layerThickness(k,iCell)
                                   + dt*workTend(k,iCell))*hProvInv(k,iCell);
-            tslice(k,iCell) = tslice(k,iCell) + workTend(k,iCell);
+            tend(k,iCell,iTracer) += workTend(k,iCell);
         }
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
-    yakl_update_host(tracer_mono::tracerCur, h_tracerCur);
-    yakl_update_host(&tslice, h_tend);
-    yakl::fence();
+
+    //yakl_update_host(tracer_mono::tracerCur, h_tracerCur);
+    //yakl_update_host(&tslice, h_tend);
+    //yakl::fence();
 }
 
 extern "C"
 void ocn_advect_mono_vert_flux(int rank, int nCells, int vertOrder,
-                                double * h_flxIn, double * h_flxOut,
+                                //double * h_flxIn, double * h_flxOut,
                                 double * h_lowOrderFlx, double * h_highOrderFlx,
-                                double * h_tracerMin, double * h_tracerMax,
-                                double * h_tracerCur, double * h_workTend)
+                                double * h_tracerMin, double * h_tracerMax)
+                                //double * h_workTend)
 {
     YAKL_LOCAL_NS(tracer_mono,highOrderFlx);
     YAKL_LOCAL_NS(tracer_mono,lowOrderFlx);
@@ -837,83 +841,19 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int vertOrder,
 #endif // MPAS_DEBUG
 
 
-    yakl_update_host(tracer_mono::flxIn, h_flxIn);
-    yakl_update_host(tracer_mono::flxOut, h_flxOut);
-    yakl_update_host(tracer_mono::workTend, h_workTend);
+    //yakl_update_host(tracer_mono::flxIn, h_flxIn);
+    //yakl_update_host(tracer_mono::flxOut, h_flxOut);
+    //yakl_update_host(tracer_mono::workTend, h_workTend);
     yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
     yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
     yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
     yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
     yakl::fence();
 
-    /*
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells) ,
-    YAKL_LAMBDA(int iCell)
-    {
-        int kmin = minLevelCell(iCell);
-        int kmax = maxLevelCell(iCell);
-        // Next-to-top cell in column is second-order
-        highOrderFlx(kmin,iCell) = 0.0;
-        if (kmax > kmin)
-        {
-            int k = kmin+1;
-            double verticalWeightK   = hProv(k-1,iCell) /
-                               (hProv(k,iCell) + hProv(k-1, iCell));
-            double verticalWeightKm1 = hProv(k,iCell) /
-                               (hProv(k,iCell) + hProv(k-1, iCell));
-            highOrderFlx(k,iCell) = w(k,iCell)*
-                               (verticalWeightK  *tracerCur(k,iCell) +
-                                verticalWeightKm1*tracerCur(k-1,iCell));
-        }
-        // Deepest vertical cell in column is second order
-        int k = max(kmin+1,kmax);
-        double verticalWeightK   = hProv(k-1,iCell) /
-                             (hProv(k  ,iCell) + hProv(k-1,iCell));
-        double verticalWeightKm1 = hProv(k  ,iCell) /
-                             (hProv(k  ,iCell) + hProv(k-1,iCell));
-        highOrderFlx(k,iCell) = w(k,iCell)*
-                             (verticalWeightK  *tracerCur(k  ,iCell) +
-                              verticalWeightKm1*tracerCur(k-1,iCell));
-        highOrderFlx(k+1,iCell) = 0.0;
-
-        // Compute low order (upwind) flux and remove from high order
-        lowOrderFlx(kmin,iCell) = 0.0;
-        for ( k = kmin+1; k <= kmax; ++k )
-        {
-            lowOrderFlx(k,iCell) =
-                DMIN(0.0,w(k,iCell))*tracerCur(k-1,iCell) +
-                DMAX(0.0,w(k,iCell))*tracerCur(k  ,iCell);
-            highOrderFlx(k,iCell) = highOrderFlx(k,iCell) -
-                                     lowOrderFlx(k,iCell);
-        }
-        lowOrderFlx(kmax+1,iCell) = 0.0;
-
-        // Upwind fluxes are accumulated in workTend
-        // flxIn contains the total remaining high order flux into iCell
-        //          it is positive.
-        // flxOut contains the total remaining high order flux out of iCell
-        //           it is negative
-        for ( k = kmin; k <= kmax; ++k )
-        {
-            workTend(k,iCell) = lowOrderFlx(k+1,iCell)
-                              - lowOrderFlx(k  ,iCell);
-            flxIn (k, iCell) = DMAX(0.0, highOrderFlx(k+1, iCell))
-                             - DMIN(0.0, highOrderFlx(k  , iCell));
-            flxOut(k, iCell) = DMIN(0.0, highOrderFlx(k+1, iCell))
-                             - DMAX(0.0, highOrderFlx(k  , iCell));
-        }
-    }, yakl::LaunchConfig<>(), tracer_mono::stream);
-    */
-
-
-//    yakl_update_host(tracer_mono::flxIn, h_flxIn);
-//    yakl_update_host(tracer_mono::flxOut, h_flxOut);
-//    yakl_update_host(&tslice, workTend);
-//    yakl::fence();
 }
 
 extern "C"
-void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
+void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, double * h_workTend)
 {
     YAKL_LOCAL_NS(tracer_mono,highOrderFlx);
     YAKL_LOCAL_NS(tracer_mono,lowOrderFlx);
@@ -928,6 +868,7 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
     YAKL_LOCAL_NS(tracer_mono,tend);
     YAKL_LOCAL_NS(mesh,minLevelCell);
     YAKL_LOCAL_NS(mesh,maxLevelCell);
+    YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
     YAKL_SCOPE(eps, tracer_mono::eps);
 
     // Build the scale factors to limit flux for FCT
@@ -935,7 +876,7 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
     // and the bounds on the newly updated value
     // Factors are placed in the flxIn and flxOut arrays
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,mxlvl}),
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
     YAKL_LAMBDA(int iCell, int k)
     {
         // workTend on the RHS is the upwind tendency
@@ -963,7 +904,7 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
 
     // Accumulate the scaled high order vertical tendencies
     // and the upwind tendencies
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,mxlvl}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
     {
         // rescale the high order vertical flux
@@ -980,7 +921,7 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
-    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,mxlvl}) ,
+    yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell, int k)
     {
         if ( (k >= minLevelCell(iCell)) && (k <= maxLevelCell(iCell)) )
@@ -994,6 +935,9 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, int mxlvl)
         }
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
+
+    yakl_update_host(tracer_mono::workTend, h_workTend);
+    yakl::fence();
 }
 
 extern "C"
