@@ -269,7 +269,6 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
     }
     //yakl_stream_wait(stream2, event1);
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nVertices},{1,nVertLevels}) ,
-    //yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,1},{1,1}) ,
     YAKL_LAMBDA(int iVertex, int k)
     {
          double invAreaTri1 = invAreaTriangle(iVertex);
@@ -289,7 +288,7 @@ void ocn_diag_solve_circ(int vertexDegree, double * h_normalVelocity, double * h
 
     yakl_update_host(diag_solve::circulation, h_circulation);
     yakl_update_host(diag_solve::relativeVorticity, h_relativeVorticity);
-    
+    yakl::fence();
     if ( DEBUG ) 
     {
         yakl::fence();

@@ -718,7 +718,7 @@ crusher-cray-yakl:
 	"FFLAGS_OPT = -O3 -g -s integer32 -f free -N 255 -em -ef -h noacc" \
 	"CFLAGS_OPT = -O3 -g " \
 	"CXXFLAGS_OPT = -O3 -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip" \
-	"LDFLAGS_OPT = -O3 -g -fopenmp -L${HIP_PATH}/lib -lamdhip64 -lstdc++" \
+	"LDFLAGS_OPT = -O3 -g -fopenmp -L${ROCM_PATH}/hip/lib -lamdhip64 -lstdc++" \
 	"FFLAGS_GPU = -fopenmp" \
 	"LDFLAGS_GPU = -fopenmp " \
         "CXXFLAGS_DEBUG = -O0 -g -std=c++17 -DYAKL_ARCH " \
@@ -1068,7 +1068,7 @@ ifeq "$(TIMER_LIB)" "gptl"
 	override CPPFLAGS += -DMPAS_GPTL_TIMERS
 	override FCINCLUDES += -I${GPTL}/include
 	override CXXFLAGS += -I${GPTL}/include
-	override LIBS += -L${GPTL}/lib -lgptl -lgptlf
+	override LIBS += -L${GPTL}/lib -lgptl -lgptlf -h omp
 	TIMER_MESSAGE="GPTL is being used for the timer interface"
 endif
 

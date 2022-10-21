@@ -109,9 +109,9 @@ libgotm:
 libYAKL:
 	if [ -e YAKL/.git ]; then \
 		(echo "Building YAKL in build-$(YAKL_ARCH)..."); \
-		(cd YAKL; git submodule update --init --recursive; mkdir -p build-$(YAKL_ARCH); \
+		(cd YAKL; git submodule update --init --recursive; git checkout mrnorman/streams; mkdir -p build-$(YAKL_ARCH); \
 		cd build-$(YAKL_ARCH); CXX=$(CXX_SERIAL) CXXFLAGS="" FFLAGS="" LDFLAGS="" \
-		cmake -DYAKL_EXTERNAL_GPTL=on -DYAKL_ARCH=$(YAKL_ARCH) -DCMAKE_CXX_FLAGS="$(YAKL_CXXFLAGS)" ..; \
+		cmake -DYAKL_EXTERNAL_GPTL=on -DYAKL_ARCH=$(YAKL_ARCH) -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-O0 $(YAKL_CXXFLAGS)" ..; \
 		make -j 8 VERBOSE=ON; cd ../..) \
 	else \
 		(echo "Missing core_ocean/YAKL/.git, did you forget to 'git submodule update --init --recursive' ?"; exit 1) \

@@ -171,6 +171,29 @@ module ocn_tracer_advection_mono
         integer(c_int), intent(in), value :: iTracer, nCells
         real(c_double), intent(in), dimension(*) :: workTend
       end subroutine
+
+      subroutine ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx, workTend) &
+                    bind(C,name="ocn_advect_mono_update_for_budgets")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), dimension(*) :: lowOrderFlx,highOrderFlx, workTend
+      end subroutine
+
+      subroutine ocn_advect_mono_update_for_flxchk(tracerCur, hProv, hNewInv, &
+                                                  workTend) &
+                    bind(C,name="ocn_advect_mono_update_for_flxchk")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), dimension(*) :: tracerCur, hProv, hNewInv, &
+                                                    workTend
+      end subroutine
+
+      subroutine ocn_advect_mono_update_for_trchk(tracerCur, tracerMin, tracerMax) &
+                    bind(C,name="ocn_advect_mono_update_for_trchk")
+        use iso_c_binding
+        use mpas_kind_types
+        real(c_double), intent(in), dimension(*) :: tracerCur, tracerMin, tracerMax
+      end subroutine
    end interface
 
 !**********************************************************************
@@ -642,15 +665,6 @@ module ocn_tracer_advection_mono
            end do
 
            ! Upwind fluxes are accumulated in workTend
-!           if ( 0 == mpas_myrank) then
-!           do k = minLevelCell(iCell), maxLevelCell(iCell)
-!                if ( abs(tmp_wt(k,iCell) - workTend(k,iCell)) > 1.0e-14 ) then
-!                    print *, mpas_myrank, ': workTend error: expected, got = ', workTend(k,iCell), tmp_wt(k,iCell), &
-!                        ' for k,iCell = ', k,iCell
-!                    call exit(-1)
-!                endif
-!           end do
-!           endif
 
            ! Build the factors for the FCT
            ! Computed using the bounds that were computed previously,
@@ -675,20 +689,6 @@ module ocn_tracer_advection_mono
                                 max(0.0_RKIND, scaleFactor))
            end do ! k loop
 
-           ! if ( 0 == mpas_myrank .and. iCell == 7 ) &
-            !    print *,' tracerUpwindNew, tracerMin = ', tracerUpwindNew, tracerMin(89,iCell)
-!           do k = minLevelCell(iCell), maxLevelCell(iCell)
-!                if ( abs(tmp_in(k,iCell) - flxIn(k,iCell)) > 1.0e-12 ) then
-!                    print *,mpas_myrank, ': flxIn error 2: expected, got = ', flxIn(k,iCell), tmp_in(k,iCell), &
-!                      " for k,iCell = ",k,iCell 
-!                    call exit(-1)
-!                endif
-!                if ( abs(tmp_out(k,iCell) - flxOut(k,iCell)) > 1.0e-12 ) then
-!                    print *, mpas_myrank,': flxOut error 2: expected, got = ', flxOut(k,iCell), tmp_out(k,iCell), &
-!                      " for k,iCell = ",k,iCell 
-!                    call exit(-1)
-!                endif
-!           end do
         end do ! iCell loop
 #ifndef MPAS_OPENACC
         !$omp end do
@@ -720,10 +720,6 @@ module ocn_tracer_advection_mono
                                       min(flxOut(k,cell1), flxIn (k,cell2)) &
                                     + min(0.0_RKIND,highOrderFlx(k,iEdge))* &
                                       min(flxIn (k,cell1), flxOut(k,cell2))
-!                if ( abs(tmp_hf(k,iEdge) - highOrderFlx(k,iEdge)) > 1.0e-14 ) then
-!                    print *, ' highOrderFlx error 2: expected, got = ', highOrderFlx(k,iCell), tmp_hf(k,iCell)
-!                    call exit(-1)
-!                endif
            end do ! k loop
         end do ! iEdge loop
 #ifndef MPAS_OPENACC
@@ -804,9 +800,10 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('advect diags horiz')
 #endif
         ! Compute budget and monotonicity diagnostics if needed
-        if (.false.) then
-        !if (computeBudgets) then
-
+        if (computeBudgets) then
+#ifdef USE_YAKL
+           call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
+#endif
            nEdges = nEdgesHalo(2)
 #ifdef MPAS_OPENACC
            !$acc parallel loop private(k) &
@@ -849,8 +846,10 @@ module ocn_tracer_advection_mono
 
         end if ! computeBudgets
 
-        if (.false.) then
-        !if (monotonicityCheck) then
+        if (monotonicityCheck) then
+#ifdef USE_YAKL
+           call ocn_advect_mono_update_for_trchk(tracerCur, tracerMin, tracerMax)
+#endif
            ! Check tracer values against local min,max to detect
            ! non-monotone values and write warning if found
 
@@ -1163,8 +1162,10 @@ module ocn_tracer_advection_mono
 #ifdef _ADV_TIMERS
         call mpas_timer_start('advect diags vert')
 #endif
-        if (.false.) then
-        !if (computeBudgets) then
+        if (computeBudgets) then
+#ifdef USE_YAKL
+           call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
+#endif
 
 #ifdef MPAS_OPENACC
            !$acc parallel loop &
@@ -1195,8 +1196,11 @@ module ocn_tracer_advection_mono
 #endif
         end if ! computeBudgets
 
-        if (.false.) then
-        !if (monotonicityCheck) then
+        if (monotonicityCheck) then
+#ifdef USE_YAKL
+           call ocn_advect_mono_update_for_flxchk(tracerCur, hProv, hNewInv, &
+                                                  workTend)
+#endif
 
            ! Check for monotonicity of new tracer value
            ! Use flxIn as a temp for new tracer value

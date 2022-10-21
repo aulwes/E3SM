@@ -48,9 +48,7 @@ d_double_2d_t   * hProvInv,
                 * w
                 ;
                 
-d_double_3d_t   * tend,
-                * activeTracerVerticalAdvectionTendency,
-                * activeTracerVerticalAdvectionTopFlux
+d_double_3d_t   * tend
                 ;
 
 };
@@ -844,11 +842,11 @@ void ocn_advect_mono_vert_flux(int rank, int nCells, int vertOrder,
     //yakl_update_host(tracer_mono::flxIn, h_flxIn);
     //yakl_update_host(tracer_mono::flxOut, h_flxOut);
     //yakl_update_host(tracer_mono::workTend, h_workTend);
-    yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
-    yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
-    yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
-    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
-    yakl::fence();
+    //yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
+    //yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
+    //yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
+    //yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
+    //yakl::fence();
 
 }
 
@@ -936,8 +934,40 @@ void ocn_advect_mono_update_tend(double dt, int iTracer, int nCells, double * h_
     //}, yakl::LaunchConfig<>(), tracer_mono::stream);
     }, yakl::LaunchConfig<>());
 
+    //yakl_update_host(tracer_mono::workTend, h_workTend);
+    //yakl::fence();
+}
+
+extern "C"
+void ocn_advect_mono_update_for_budgets(double * h_lowOrderFlx, double * h_highOrderFlx, double * h_workTend)
+{
+    yakl_update_host(tracer_mono::lowOrderFlx, h_lowOrderFlx);
+    yakl_update_host(tracer_mono::highOrderFlx, h_highOrderFlx);
     yakl_update_host(tracer_mono::workTend, h_workTend);
+
     yakl::fence();
+}
+
+extern "C"
+void ocn_advect_mono_update_for_flxchk(double * h_tracerCur, double * h_hProv, 
+                                       double * h_hNewInv, double * h_workTend)
+{
+    yakl_update_host(tracer_mono::tracerCur, h_tracerCur);
+    yakl_update_host(tracer_mono::hProv, h_hProv);
+    yakl_update_host(tracer_mono::hNewInv, h_hNewInv);
+    yakl_update_host(tracer_mono::workTend, h_workTend);
+
+    yakl::fence();   
+}
+
+extern "C"
+void ocn_advect_mono_update_for_trchk(double * h_tracerCur, double * h_tracerMin, double * h_tracerMax)
+{
+    yakl_update_host(tracer_mono::tracerCur, h_tracerCur);
+    yakl_update_host(tracer_mono::tracerMin, h_tracerMin);
+    yakl_update_host(tracer_mono::tracerMax, h_tracerMax);
+
+    yakl::fence();   
 }
 
 extern "C"
