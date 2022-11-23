@@ -32,6 +32,9 @@ module ocn_init_ssh_and_landIcePressure
    use ocn_diagnostics_variables
 
    use ocn_equation_of_state
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -126,6 +129,10 @@ contains
          call mpas_log_write( 'ocn_equation_of_state_density failed.', MPAS_LOG_CRIT)
          return
        end if
+#ifdef USE_YAKL
+       ! wait for data transfer of density
+       call ocn_yakl_fence
+#endif
 
        block_ptr => block_ptr % next
      end do !block_ptr
@@ -158,6 +165,10 @@ contains
          return
        end if
 
+#ifdef USE_YAKL
+       ! wait for data transfer of density
+       call ocn_yakl_fence
+#endif
        do iCell = 1, nCells
          if(modifyLandIcePressureMask(iCell) == 0) then
            ssh(iCell) = 0.0_RKIND

@@ -32,6 +32,9 @@ module ocn_eliassen_palm
    use ocn_config
    use ocn_equation_of_state
    use ocn_diagnostics_variables
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -560,6 +563,10 @@ contains
          call ocn_equation_of_state_density(statePool, meshPool, tracersSurfaceValue, &
                                             nCells, 1, 'absolute', potentialDensity, &
                                             err) !, timeLevelIn=1)
+#ifdef USE_YAKL
+         ! wait for data transfer of potentialDensity
+         call ocn_yakl_fence
+#endif
 
          !--------------------------------------------------
          ! Get variables associated to diabatic processes

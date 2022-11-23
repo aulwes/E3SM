@@ -164,8 +164,8 @@ module ocn_equation_of_state_jm
       bup2s1t2 =  6.207323e-10_RKIND
 
    real (c_double), bind(C) ::         &
-        uns2t0_c = uns2t0
-   real (c_double), bind(C) ::         &
+        uns2t0_c = uns2t0, &
+   !real (c_double), bind(C) ::         &
         unt0_c = unt0
    real (c_double), bind(C) ::         &
         unt1_c = unt1

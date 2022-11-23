@@ -164,6 +164,10 @@ contains
           subroutine ocn_diag_update_density() &
                         bind(C,name="ocn_diag_update_density")
           end subroutine
+
+          subroutine ocn_diag_update_displaced_density() &
+                        bind(C,name="ocn_diag_update_displaced_density")
+          end subroutine
           
       end interface
 
@@ -342,6 +346,10 @@ contains
       call ocn_equation_of_state_density(statePool, meshPool, activeTracers, tracersSurfaceValue, &
                                          nCells, 1, 'relative', displacedDensity, &
                                          err, timeLevelIn=timeLevel)
+#ifdef USE_YAKL
+      ! copy over the density from eos to displacedDensity
+      call ocn_diag_update_displaced_density
+#endif
 
 
       !

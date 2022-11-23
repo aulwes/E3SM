@@ -93,6 +93,8 @@ void check_extents()
 
 }
 
+extern "C"
+d_double_2d_t & ocn_eos_get_density() {return *(eos_jm::density);}
 
 extern "C"
 void ocn_eos_density_only(int rank, int nCells, int nVertLevels,

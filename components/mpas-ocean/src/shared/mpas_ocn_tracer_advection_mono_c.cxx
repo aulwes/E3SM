@@ -64,9 +64,6 @@ void ocn_advect_mono_copyin(double * h_normalThicknessFlux,
     //std::cerr << " tend size = " << tendSize[0] << " " << tendSize[1] << " " << tendSize[2] << std::endl;
     tend = yakl_wrap_array("tend", static_cast<double *>(c_transTend.ptr),
             c_transTend.shape[0], c_transTend.shape[1], c_transTend.shape[2]);
-    /*yakl_update_device(normalThicknessFlux, h_normalThicknessFlux, stream);
-    yakl_update_device(w, h_w, stream);
-    yakl_update_device(layerThickness, h_layerThickness, stream);*/
     yakl_update_device(normalThicknessFlux, h_normalThicknessFlux);
     yakl_update_device(w, h_w);
     yakl_update_device(layerThickness, h_layerThickness);
