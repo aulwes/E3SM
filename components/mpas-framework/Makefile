@@ -863,9 +863,9 @@ endif
 ifneq ($(wildcard $(PIO_LIB)/libpioc\.*), )
 	LIBS += -lpioc
 endif
-ifneq ($(wildcard $(PIO_LIB)/libgptl\.*), )
-	LIBS += -lgptl
-endif
+#ifneq ($(wildcard $(PIO_LIB)/libgptl\.*), )
+#	LIBS += -lgptl
+#endif
 
 ifneq "$(NETCDF)" ""
 ifneq ($(wildcard $(NETCDF)/lib), )
@@ -1002,7 +1002,8 @@ ifeq "$(OPENACC)" "true"
 endif #OPENACC IF
 
 ifeq "$(USE_YAKL)" "true"
-        override CPPFLAGS += "-DUSE_YAKL"
+        #override CPPFLAGS += -DYAKL_PROFILE -DUSE_YAKL
+        override CPPFLAGS += -DUSE_YAKL
 	LDFLAGS_EXTRA += -L./src/YAKL/build-$(YAKL_ARCH) -L${ROCM_PATH}/lib
 	LIBS_EXTRA += -lyakl -lroctx64 -lrocfft
 	#override LIBS += -L./src/YAKL/build-$(YAKL_ARCH) -lyakl
@@ -1068,7 +1069,9 @@ ifeq "$(TIMER_LIB)" "gptl"
 	override CPPFLAGS += -DMPAS_GPTL_TIMERS
 	override FCINCLUDES += -I${GPTL}/include
 	override CXXFLAGS += -I${GPTL}/include
-	override LIBS += -L${GPTL}/lib -lgptl -lgptlf -h omp
+	#override CPPFLAGS += -DMPAS_PERF_MOD_TIMERS
+	#override LIBS += -L${GPTL}/lib -lgptl -h omp
+	override LIBS += -L${GPTL}/lib -lgptl -lgptlf -lgptl -h omp
 	TIMER_MESSAGE="GPTL is being used for the timer interface"
 endif
 
