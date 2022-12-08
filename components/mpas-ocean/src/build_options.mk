@@ -13,6 +13,7 @@ FCINCLUDES += -I$(ROOT_DIR)/gotm/build/modules
 ifneq "$(USE_YAKL)" ""
     CXXINCLUDES := -I$(ROOT_DIR)/YAKL/src
 endif
+FCINCLUDES += -I$(ROOT_DIR)/ppr/src
 override CPPFLAGS += -DCORE_OCEAN
 
 report_builds:

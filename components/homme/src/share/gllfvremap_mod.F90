@@ -2558,7 +2558,7 @@ contains
 
     ! Purposely construct our own hybrid object to test gfr_hybrid_create.
     type (hybrid_t) :: hybrid
-    integer :: nets, nete, nerr
+    integer :: nets, nete, nerr, ic
 
     nerr = 0
     if (.not. par%dynproc) return
@@ -2728,21 +2728,22 @@ contains
        qmax = -two
        qmin1 = two
        qmax1 = -two
+       ic = 2
        do ie = nets, nete
           wg = gfr%w_gg(:,:)*elem(ie)%metdet(:,:)
           ! L2 on q. Might switch to q*ps_v.
           global_shared_buf(ie,1) = &
-               sum(wg*(elem(ie)%state%Q(:,:,1,1) - elem(ie)%state%Q(:,:,1,2))**2)
+               sum(wg*(elem(ie)%state%Q(:,:,1,1) - elem(ie)%state%Q(:,:,1,ic))**2)
           global_shared_buf(ie,2) = &
-               sum(wg*elem(ie)%state%Q(:,:,1,2)**2)
+               sum(wg*elem(ie)%state%Q(:,:,1,ic)**2)
           ! Mass conservation.
           wg = wg*elem(ie)%state%ps_v(:,:,1)
-          global_shared_buf(ie,3) = sum(wg*elem(ie)%state%Q(:,:,1,2))
+          global_shared_buf(ie,3) = sum(wg*elem(ie)%state%Q(:,:,1,ic))
           global_shared_buf(ie,4) = sum(wg*elem(ie)%state%Q(:,:,1,1))
           qmin = min(qmin, minval(elem(ie) %state%Q(:,:,1,1)))
-          qmin1 = min(qmin1, minval(elem(ie)%state%Q(:,:,1,2)))
+          qmin1 = min(qmin1, minval(elem(ie)%state%Q(:,:,1,ic)))
           qmax = max(qmax, maxval(elem(ie)%state%Q(:,:,1,1)))
-          qmax1 = max(qmax1, maxval(elem(ie)%state%Q(:,:,1,2)))
+          qmax1 = max(qmax1, maxval(elem(ie)%state%Q(:,:,1,ic)))
        end do
        call wrap_repro_sum(nvars=4, comm=hybrid%par%comm)
        qmin = ParallelMin(qmin, hybrid)
@@ -2797,7 +2798,7 @@ contains
           call ref2sphere(corners, refin(1), refin(2), sphere)
           call sphere2ref(corners, sphere, refout(1), refout(2))
           err = abs(refin(1) - refout(1)) + abs(refin(2) - refout(2))
-          if (err > 10*eps .or. &
+          if (err > 15*eps .or. &
                maxval(abs(refout)) > 1 + 5*eps .or. &
                any(refout /= refout)) then
              write(iulog,*) refin(1), refin(2)

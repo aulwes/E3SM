@@ -8,7 +8,7 @@ endif
 FRAMEWORK_DIR = ../../../mpas-framework/src
 OCEAN_SHARED_INCLUDES = -I$(FRAMEWORK_DIR)/framework -I$(FRAMEWORK_DIR)/external/esmf_time_f90 -I$(FRAMEWORK_DIR)/operators
 OCEAN_SHARED_INCLUDES += -I$(PWD)/shared -I$(PWD)/analysis_members -I$(PWD)/mode_forward -I$(PWD)/mode_analysis
-OCEAN_SHARED_INCLUDES += -I$(PWD)/BGC -I$(PWD)/MARBL/include -I$(PWD)/cvmix/src/shared -I$(PWD)/gotm/build -I$(PWD)/gotm/build/modules -I$(PWD)/SHTNS
+OCEAN_SHARED_INCLUDES += -I$(PWD)/BGC -I$(PWD)/MARBL/include -I$(PWD)/cvmix/src/shared -I$(PWD)/gotm/build -I$(PWD)/gotm/build/modules -I$(PWD)/SHTNS -I$(PWD)/ppr/src
 ifneq "$(EXCLUDE_INIT_MODE)" "true"
 	OCEAN_SHARED_INCLUDES += -I$(PWD)/mode_init
 endif
@@ -24,7 +24,7 @@ endif
 
 DYCORE_OBJ := `find . ! -path '*/YAKL/*' -type f -name "*.o"`
 
-all: shared libcvmix analysis_members libBGC libMARBL libgotm libfftw libshtns
+all: shared libcvmix analysis_members libBGC libMARBL libgotm libfftw libshtns libppr
 	(cd mode_forward; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)" all )
 	(cd mode_analysis; $(MAKE) FCINCLUDES="$(FCINCLUDES) $(OCEAN_SHARED_INCLUDES)" all )
 ifneq "$(EXCLUDE_INIT_MODE)" "true"
@@ -148,7 +148,14 @@ libfftw:
 	fi \
 	fi
 
-SHARED_LIBS := libcvmix libBGC libMARBL libgotm libshtns libfftw
+libppr:
+	if [ -e ppr/.git ]; then \
+		(cd ppr/src; $(CPP) $(CPPFLAGS) $(CPPINCLUDES) ppr_1d.F90 > ppr_1d.F; $(FC) $(FFLAGS) -c ppr_1d.F -o ppr_1d.o) \
+	else \
+		(pwd ; echo "Missing core_ocean/ppr/.git, did you forget to 'git submodule update --init --recursive' ?"; exit 1) \
+	fi
+
+SHARED_LIBS := libcvmix libBGC libMARBL libgotm libshtns libfftw libppr
 ifeq "$(USE_YAKL)" "true"
   $(warning "building yakl lib in build-$(YAKL_ARCH)...")
   SHARED_LIBS += libYAKL
