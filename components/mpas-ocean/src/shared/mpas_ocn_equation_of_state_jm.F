@@ -431,7 +431,9 @@ contains
             
       allocate(tracerTemp(nVertLevels,nCells), &
                tracerSalt(nVertLevels,nCells))
+#ifdef MPAS_OPENACC
       !$acc enter data create(tracerTemp, tracerSalt)
+#endif
 
       if (displacementType == 'surfaceDisplaced') then
 
@@ -619,7 +621,9 @@ contains
 #endif
 #endif ! USE_YAKL
 
+#ifdef MPAS_OPENACC
       !$acc exit data delete(p, p2, tracerTemp, tracerSalt)
+#endif
       deallocate(p,p2)
       deallocate(tracerTemp, tracerSalt)
       !deallocate(tmpdens)
@@ -824,7 +828,9 @@ contains
       ! For OpenACC, these are device resident only
       allocate(tracerTemp(nVertLevels,nCells), &
                tracerSalt(nVertLevels,nCells))
+#ifdef MPAS_OPENACC
       !$acc enter data create(tracerTemp, tracerSalt)
+#endif
 
       if (displacementType == 'surfaceDisplaced') then
 

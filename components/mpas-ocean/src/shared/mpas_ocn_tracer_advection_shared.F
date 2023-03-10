@@ -29,6 +29,8 @@
 #endif
 
 #define C_WRAP(var) CAT(c_,var) = c_loc(var)
+#define C_DECOMP1D(var) \
+    CAT(c_,var) = ocn_yakl_type(size(var),c_loc(var))
 #define C_DECOMP(var) \
     CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
@@ -344,7 +346,7 @@ module ocn_tracer_advection_shared
          advMaskHighOrder(:,:) = 0.0_RKIND
 
 #ifdef USE_YAKL
-         C_DECOMP(nAdvCellsForEdge)
+         C_DECOMP1D(nAdvCellsForEdge)
          C_DECOMP(advCellsForEdge)
          C_DECOMP(advCoefs)
          C_DECOMP(advCoefs3rd)

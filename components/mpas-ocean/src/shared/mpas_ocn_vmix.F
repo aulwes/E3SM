@@ -18,6 +18,19 @@
 !>
 !
 !-----------------------------------------------------------------------
+!#undef USE_YAKL
+
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+
+#define C_DECOMP(var) \
+CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
 module ocn_vmix
 
@@ -34,6 +47,11 @@ module ocn_vmix
    use ocn_vmix_gotm
    use ocn_vmix_coefs_redi
    use ocn_diagnostics_variables
+
+   use iso_c_binding
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -67,6 +85,10 @@ module ocn_vmix
    real (kind=RKIND) :: implicitBottomDragCoef
    real (kind=RKIND) :: rayleighDampingCoef, rayleighBottomDampingCoef, &
                         rayleighDepthVariable
+
+#ifdef USE_YAKL
+   type(ocn_yakl_type), BIND(C, NAME='c_tracerGroupSurfaceFlux') :: c_tracerGroupSurfaceFlux
+#endif
 
 !***********************************************************************
 
@@ -131,6 +153,14 @@ contains
 
       integer :: iEdge, iCell, k, nEdges, nCells
 
+      interface
+      subroutine ocn_vmix_upd_device() &
+                    bind(C,name="ocn_vmix_upd_device")
+        use iso_c_binding
+        use mpas_kind_types
+      end subroutine
+  end interface
+
       !-----------------------------------------------------------------
       !
       ! call relevant routines for computing coefficients
@@ -192,9 +222,16 @@ contains
 
       err = ior(ior(err1, err2), err3)
 
+#ifdef USE_YAKL
+      call ocn_vmix_upd_device
+#else
+
 #ifdef MPAS_OPENACC
       !$acc update device(vertDiffTopOfCell, vertViscTopOfCell, vertNonLocalFlux)
 #endif
+
+#endif ! USE_YAKL
+
    !--------------------------------------------------------------------
 
    end subroutine ocn_vmix_coefs!}}}
@@ -435,9 +472,26 @@ contains
       real (kind=RKIND), dimension(:), allocatable :: bTemp, C, rTemp
       real (kind=RKIND) :: A, m
 
+      interface
+          subroutine ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef) &
+                        bind(C,name="ocn_vmix_vel_tend_impl")
+            use iso_c_binding
+            use mpas_kind_types
+            real (kind=RKIND), intent(in), value :: dt !< [in] Time step
+            real (kind=RKIND), intent(in), value :: implicitBottomDragCoef
+          end subroutine
+      end interface
+
       err = 0
 
       if(.not.velVmixOn) return
+
+#if 0
+!#ifdef USE_YAKL
+
+      call ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef)
+
+#else
 
       allocate(bTemp(nVertLevels),C(nVertLevels),rTemp(nVertLevels))
 
@@ -517,8 +571,8 @@ contains
 #ifdef MPAS_OPENACC
       !$acc exit data delete(bTemp, C, rTemp)
 #endif
-
       deallocate(bTemp,C,rTemp)
+#endif ! USE_YAKL
 
    !--------------------------------------------------------------------
 
@@ -597,11 +651,25 @@ contains
       real (kind=RKIND), dimension(:), allocatable :: bTemp, C, rTemp
       real (kind=RKIND) :: A, m
 
+      interface
+          subroutine ocn_vmix_vel_tend_impl_spatial(dt,implicitBottomDragCoef) &
+                        bind(C,name="ocn_vmix_vel_tend_impl_spatial")
+            use iso_c_binding
+            use mpas_kind_types
+            real (kind=RKIND), intent(in), value :: dt !< [in] Time step
+            real (kind=RKIND), intent(in), value :: implicitBottomDragCoef
+          end subroutine
+      end interface
+
       err = 0
 
       if(.not.velVmixOn) return
 
       allocate(bTemp(nVertLevels),C(nVertLevels),rTemp(nVertLevels))
+
+#ifdef USE_YAKL
+      call ocn_vmix_vel_tend_impl_spatial(dt,implicitBottomDragCoef)
+#else
 
 #ifdef MPAS_OPENACC
       !$acc enter data create(bTemp, C, rTemp)
@@ -680,6 +748,8 @@ contains
       !$acc exit data delete(bTemp, C, rTemp)
       !$acc exit data delete(bottomDrag)
 #endif
+#endif ! USE_YAKL
+
       deallocate(bTemp,C,rTemp)
 
    !--------------------------------------------------------------------
@@ -1131,6 +1201,27 @@ contains
       type (mpas_pool_iterator_type) :: groupItr
 
       character (len=StrKIND) :: modifiedGroupName
+
+      interface
+          subroutine ocn_vmix_wrap_sfcflux() &
+                        bind(C,name="ocn_vmix_wrap_sfcflux")
+            use iso_c_binding
+            use mpas_kind_types
+          end subroutine
+
+          subroutine ocn_vmix_avg() &
+                        bind(C,name="ocn_vmix_avg")
+            use iso_c_binding
+            use mpas_kind_types
+          end subroutine
+
+          subroutine ocn_vmix_gotm_avg() &
+                        bind(C,name="ocn_vmix_gotm_avg")
+            use iso_c_binding
+            use mpas_kind_types
+          end subroutine
+      end interface
+
       err = 0
 
       call mpas_timer_start('vmix imp')
@@ -1158,6 +1249,10 @@ contains
       if ( config_use_cvmix ) then
 
          call mpas_timer_start('CVMix avg', .false.)
+#ifdef USE_YAKL
+         call ocn_vmix_avg
+#else
+
 #ifdef MPAS_OPENACC
          !$acc parallel loop present(cellsOnEdge, minLevelEdgeBot, maxLevelEdgeTop, &
          !$acc    vertViscTopOfCell, vertViscTopOfEdge) &
@@ -1184,6 +1279,7 @@ contains
          !$omp end do
          !$omp end parallel
 #endif
+#endif ! USE_YAKL
          call mpas_timer_stop('CVMix avg')
       endif
 
@@ -1191,6 +1287,10 @@ contains
       if ( config_use_gotm ) then
 
          call mpas_timer_start('GOTM avg', .false.)
+#ifdef USE_YAKL
+         call ocn_vmix_gotm_avg
+#else
+
 #ifdef MPAS_OPENACC
          !$acc parallel loop present(cellsOnEdge, minLevelEdgeBot, maxLevelEdgeTop, &
          !$acc    vertViscTopOfCell, vertViscTopOfEdge) &
@@ -1215,8 +1315,14 @@ contains
 #ifndef MPAS_OPENACC
          !$omp end do
 #endif
+#endif ! USE_YAKL
          call mpas_timer_stop('GOTM avg')
       endif
+
+#ifdef USE_YAKL
+      call ocn_yakl_fence
+#endif
+
 #ifdef MPAS_OPENACC
       !$acc update host(vertViscTopOfEdge)
 #endif
@@ -1298,6 +1404,13 @@ contains
                   call mpas_pool_get_array(tracersSurfaceFluxPool, trim(modifiedGroupName), &
                           tracerGroupSurfaceFlux)
                endif
+
+#if 0
+!#ifdef USE_YAKL
+               C_DECOMP(tracerGroupSurfaceFlux)
+               call ocn_vmix_wrap_sfcflux
+#endif
+
 #ifdef MPAS_OPENACC
             !$acc enter data copyin(tracerGroupSurfaceFlux)
 #endif
@@ -1377,6 +1490,14 @@ contains
 
       integer, intent(out) :: err !< Output: error flag
 
+      interface
+          subroutine ocn_vmix_yakl_init() &
+                        bind(C,name="ocn_vmix_yakl_init")
+            use iso_c_binding
+            use mpas_kind_types
+          end subroutine
+      end interface
+
       integer :: err_tmp
 
       err = 0
@@ -1417,6 +1538,9 @@ contains
       call ocn_vmix_coefs_redi_init(err_tmp)
       err = ior(err, err_tmp)
 
+#ifdef USE_YAKL
+      call ocn_vmix_yakl_init
+#endif
    !--------------------------------------------------------------------
 
    end subroutine ocn_vmix_init!}}}

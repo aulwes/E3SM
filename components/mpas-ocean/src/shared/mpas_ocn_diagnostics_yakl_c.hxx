@@ -5,7 +5,8 @@
 
 namespace diag_solve
 {
-extern int nCells,
+extern int
+    nCells,
     nEdges,
     nVertices,
     nVertLevels
@@ -15,8 +16,17 @@ extern
 d_double_1d_t   * ssh
     ;
 
+// temp scratch space
+extern
+d_double_2d_t   * bTemp,
+                * rTemp,
+                * cTemp
+                ;
+
 extern
 d_double_2d_t   * normalVelocity,
+                * kineticEnergyCell,
+                * layerThickEdgeMean,
                 * layerThicknessEdge
                 ;
 

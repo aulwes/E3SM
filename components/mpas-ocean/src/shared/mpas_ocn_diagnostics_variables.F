@@ -28,6 +28,8 @@
 #endif
 #define C_DECOMP(var) \
     CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+#define C_DECOMP1D(var) \
+    CAT(c_,var) = ocn_yakl_type(size(var),c_loc(var))
 #define C_NSDECOMP(nsvar,var) \
     CAT(c_,nsvar) = ocn_yakl_type(shape(var),c_loc(var))
 
@@ -247,6 +249,12 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_tracersSurfaceLayerValue') :: c_tracersSurfaceLayerValue
    type(ocn_yakl_type), BIND(C, NAME='c_indexSurfaceLayerDepth') :: c_indexSurfaceLayerDepth
    type(ocn_yakl_type), BIND(C, NAME='c_normalVelocitySurfaceLayer') :: c_normalVelocitySurfaceLayer
+
+   type(ocn_yakl_type), BIND(C, NAME='c_layerThickEdgeMean') :: c_layerThickEdgeMean
+   type(ocn_yakl_type), BIND(C, NAME='c_vertViscTopOfCell') :: c_vertViscTopOfCell
+   type(ocn_yakl_type), BIND(C, NAME='c_vertDiffTopOfCell') :: c_vertDiffTopOfCell
+   type(ocn_yakl_type), BIND(C, NAME='c_vertViscTopOfEdge') :: c_vertViscTopOfEdge
+   type(ocn_yakl_type), BIND(C, NAME='c_vertNonLocalFlux') :: c_vertNonLocalFlux
 #endif
 
    !--------------------------------------------------------------------
@@ -283,7 +291,7 @@ contains
       integer, intent(out) :: err !< Output: Error flag
 
       type (mpas_pool_type), pointer :: diagnosticsPool
-      
+
       err = 0
 
       call mpas_pool_get_subpool(domain % blocklist % structs, 'diagnostics', diagnosticsPool)
@@ -889,7 +897,7 @@ contains
 
 #ifdef USE_YAKL
       C_DECOMP(relativeVorticityCell)
-      C_DECOMP(barotropicForcing)
+      C_DECOMP1D(barotropicForcing)
       C_DECOMP(divergence)
       C_DECOMP(kineticEnergyCell)
       C_DECOMP(normalGMBolusVelocity)
@@ -907,14 +915,19 @@ contains
       C_DECOMP(zTop)
       C_DECOMP(RiTopOfCell)
       C_DECOMP(BruntVaisalaFreqTop)
-      !C_DECOMP(edgeAreaFractionOfCell)
       C_DECOMP(montgomeryPotential)
       C_DECOMP(pressure)
-      C_DECOMP(surfacePressure)
+      C_DECOMP1D(surfacePressure)
 
       C_DECOMP(tracersSurfaceLayerValue)
-      C_DECOMP(indexSurfaceLayerDepth)
-      C_DECOMP(normalVelocitySurfaceLayer)
+      C_DECOMP1D(indexSurfaceLayerDepth)
+      C_DECOMP1D(normalVelocitySurfaceLayer)
+
+      C_DECOMP(vertDiffTopOfCell)
+      C_DECOMP(vertViscTopOfCell)
+      C_DECOMP(vertViscTopOfEdge)
+      C_DECOMP(vertNonLocalFlux)
+      C_DECOMP1D(normalVelocitySurfaceLayer)  
 #endif
 
       !$acc enter data create(                                         &

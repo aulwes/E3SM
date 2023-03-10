@@ -18,6 +18,7 @@
 !
 !-----------------------------------------------------------------------
 !#undef USE_YAKL
+!#define _ADV_TIMERS 1
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -55,6 +56,10 @@ module ocn_tracer_advection_mono
 
 #ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_transTend')    :: c_transTend
+   type(ocn_yakl_type), BIND(C, NAME='c_normalThicknessFlux')    :: c_normalThicknessFlux
+   type(ocn_yakl_type), BIND(C, NAME='c_flxIn')    :: c_flxIn
+   type(ocn_yakl_type), BIND(C, NAME='c_flxOut')    :: c_flxOut
+   type(ocn_yakl_type), BIND(C, NAME='c_workTend')    :: c_workTend
 #endif
 
    ! module private variables
@@ -135,14 +140,14 @@ module ocn_tracer_advection_mono
         real(c_double), intent(in), dimension(*) :: highOrderFlx, workTend, flxIn, flxOut
       end subroutine
 
-      !subroutine ocn_advect_mono_compute_tend(iTracer, nCells, dt, tend, tracerCur) &
-      subroutine ocn_advect_mono_compute_tend(iTracer, nCells, dt) &
+      subroutine ocn_advect_mono_compute_tend(iTracer, nCells, dt, tend, tracerCur) &
+      !subroutine ocn_advect_mono_compute_tend(iTracer, nCells, dt) &
                     bind(C,name="ocn_advect_mono_compute_tend")
         use iso_c_binding
         use mpas_kind_types
         real(c_double), intent(in), value :: dt
         integer(c_int), intent(in), value :: iTracer, nCells
-        !real(c_double), intent(in), dimension(*) :: tend,tracerCur
+        real(c_double), intent(in), dimension(*) :: tend,tracerCur
       end subroutine
 
       subroutine ocn_advect_mono_cell_init(nCells) &
@@ -276,7 +281,7 @@ module ocn_tracer_advection_mono
       real (kind=RKIND), dimension(:,:), allocatable :: &
         tmphof,tmplof
         
-      real (kind=RKIND), dimension(:,:), allocatable :: &
+      real (kind=RKIND), dimension(:,:), allocatable, target :: &
          tracerCur,     &! reordered current tracer
          tracerMax,     &! max tracer in neighbors for limiting
          tracerMin,     &! min tracer in neighbors for limiting
@@ -339,12 +344,22 @@ module ocn_tracer_advection_mono
         if ( isnan(normalThicknessFlux(1,1)) ) &
             print *," pre ocn_advect_mono_copyin: normalThicknessFlux is nan", normalThicknessFlux(1,1)
 
+!#if 0
 #ifdef USE_YAKL
       C_DECOMP(transTend)
+      C_DECOMP(normalThicknessFlux)
+      C_DECOMP(flxIn)
+      C_DECOMP(flxOut)
+      C_DECOMP(workTend)
 
       call ocn_advect_mono_copyin(normalThicknessFlux, &
                                     w,layerThickness)
       call ocn_advect_mono_pre(dt,hProv, hProvInv, hNewInv)
+
+      !$acc enter data create(wgtTmp, flxTmp, sgnTmp, &
+      !$acc                   tracerCur, tracerMin, tracerMax, &
+      !$acc                   hNewInv, hProv, hProvInv, flxIn, flxOut, &
+      !$acc                   workTend, lowOrderFlx, highOrderFlx)
 
 #else
 
@@ -740,8 +755,8 @@ module ocn_tracer_advection_mono
 !#if 0
 #ifdef USE_YAKL
 
-        call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt)
-        !call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt,transTend(:,:,iTracer), tracerCur)
+        !call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt)
+        call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt,transTend(:,:,iTracer), tracerCur)
 
 #else
 
@@ -801,6 +816,7 @@ module ocn_tracer_advection_mono
 #endif
         ! Compute budget and monotonicity diagnostics if needed
         if (computeBudgets) then
+        !#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
 #endif
@@ -847,6 +863,7 @@ module ocn_tracer_advection_mono
         end if ! computeBudgets
 
         if (monotonicityCheck) then
+!#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_trchk(tracerCur, tracerMin, tracerMax)
 #endif
@@ -1163,6 +1180,7 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('advect diags vert')
 #endif
         if (computeBudgets) then
+!#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
 #endif
@@ -1197,6 +1215,7 @@ module ocn_tracer_advection_mono
         end if ! computeBudgets
 
         if (monotonicityCheck) then
+!#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_flxchk(tracerCur, hProv, hNewInv, &
                                                   workTend)
@@ -1261,12 +1280,13 @@ module ocn_tracer_advection_mono
 !#if 0
 #ifdef USE_YAKL
       call ocn_advect_mono_end()
-#else
+#endif !USE_YAKL
+!#else
       !$acc exit data delete(wgtTmp, flxTmp, sgnTmp, &
       !$acc                  tracerCur, tracerMin, tracerMax, &
       !$acc                  hNewInv, hProv, hProvInv, flxIn, flxOut, &
       !$acc                  workTend, lowOrderFlx, highOrderFlx)
-#endif !USE_YAKL
+!#endif !USE_YAKL
 
       do iTracer = 1,numTracers
          tend(iTracer,:,:) = transTend(:,:,iTracer)
@@ -1349,7 +1369,7 @@ module ocn_tracer_advection_mono
 
       ! Set flag for checking monotonicity
       monotonicityCheck = config_check_tracer_monotonicity
-
+!#if 0
 #ifdef USE_YAKL
       call ocn_advect_mono_init(coef3rdOrder,eps)
 #endif

@@ -84,6 +84,7 @@ ifeq "$(USE_YAKL)" "true"
 	   mpas_ocn_time_int_split.o \
 	   mpas_ocn_equation_of_state_jm_c.o \
 	   mpas_ocn_tendency_c.o \
+	   mpas_ocn_vmix_c.o \
 	   mpas_ocn_mesh_c.o \
 	   mpas_ocn_yakl_c.o \
 	   mpas_ocn_tracer_advection_mono_c.o
@@ -192,6 +193,8 @@ mpas_ocn_diagnostics_yakl_c.o: mpas_ocn_yakl_types.hxx
 mpas_ocn_time_int_split.o: mpas_ocn_diagnostics_yakl_c.o
 
 mpas_ocn_tracer_advection_mono_c.o: mpas_ocn_mesh_c.o mpas_ocn_yakl_types.hxx
+
+mpas_ocn_vmix_c.o: mpas_ocn_mesh_c.o mpas_ocn_yakl_types.hxx
 
 mpas_ocn_equation_of_state_linear.o: mpas_ocn_constants.o mpas_ocn_config.o
 

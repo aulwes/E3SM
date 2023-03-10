@@ -8,6 +8,7 @@
 #define GET_DPTR(v) (static_cast<double *>((diag_solve::c_##v).ptr))
 #define GET_IPTR(v) (static_cast<int *>((diag_solve::c_##v).ptr))
 #define DEBUG 0
+//#define MPAS_DEBUG 1
 
 extern "C"
 d_double_2d_t & ocn_eos_get_density();
@@ -22,6 +23,12 @@ int nCells,
 
 yakl::Stream     stream1;
 yakl::Stream     stream2;
+
+// temp scratch space
+d_double_2d_t   * bTemp,
+                * rTemp,
+                * cTemp
+                ;
 
 d_int_1d_t      * indexSurfaceLayerDepth
                 ;
@@ -122,11 +129,17 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
     stream1 = yakl::create_stream();
     stream2 = yakl::create_stream();
 
+    bTemp = yakl_create_real("bTemp", nVertLevels, std::max(nCells,nEdges));
+    rTemp = yakl_create_real("rTemp", nVertLevels, std::max(nCells,nEdges));
+    cTemp = yakl_create_real("cTemp", nVertLevels, std::max(nCells,nEdges));
+
     if ( DEBUG) {
         std::cerr << " ocn_diagnostics_yakl_init: c_relativeVorticityCell shape = "
             << c_relativeVorticityCell.shape[0] << " " << c_relativeVorticityCell.shape[1]  << std::endl;
-        std::cerr << " ocn_diagnostics_yakl_init: nVertLevels, nVertices = "
-            << nVertLevels << " " << nVertices << std::endl;
+        std::cerr << " ocn_diagnostics_yakl_init: c_layerThickness shape = "
+            << c_layerThickness.shape[0] << " " << c_layerThickness.shape[1]  << std::endl;
+        std::cerr << " ocn_diagnostics_yakl_init: nVertLevels, nVertices, nCells, nEdges = "
+            << nVertLevels << " " << nVertices << " " << nCells << " " << nEdges << std::endl;
     }
     normalVelocity = yakl_create_real("normalVelocity", nVertLevels, nEdges);
     layerThickness = yakl_create_real("layerThickness", c_layerThickness.shape[0], c_layerThickness.shape[1]);
@@ -414,7 +427,7 @@ void ocn_diag_solve_layer_thick_upwind(int nEdges, double * h_normalVelocity, do
             }
             else
             {
-              layerThickEdgeFlux(k,iEdge) = max(layerThickness(k,cell1), layerThickness(k,cell2));
+              layerThickEdgeFlux(k,iEdge) = std::max(layerThickness(k,cell1), layerThickness(k,cell2));
             }
             printf(" upwind: layerThickEdgeFlux(%d,%d) = %lf\n ", k,iEdge, layerThickEdgeFlux(k, iEdge));
           }
@@ -698,6 +711,7 @@ void ocn_diagnostic_solve_vort(int nVerticesH, int nEdgesH, int nCellsH, int ver
     YAKL_SCOPE(nVertLevels, diag_solve::nVertLevels);
     YAKL_SCOPE(nVertices, diag_solve::nVertices);
 
+//#if 1
 #if MPAS_DEBUG
     if ( DEBUG ) 
     {
@@ -954,6 +968,7 @@ void ocn_diagnostic_solve_rich(double coef, int nCellsH,
 
     using diag_solve::stream1;
 
+//#if 1
 #ifdef MPAS_DEBUG
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}),
@@ -1177,7 +1192,8 @@ void ocn_diag_pressure(int rank, double gravity, double * h_density)
 
     double coef = gravity*0.5;
 
- #ifdef MPAS_DEBUG
+//#if 1
+#ifdef MPAS_DEBUG
      yakl::fortran::parallel_for( yakl::fortran::Bounds<1>(nCells),
     YAKL_LAMBDA(int iCell)
     {

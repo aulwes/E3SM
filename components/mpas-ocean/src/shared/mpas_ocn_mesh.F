@@ -22,6 +22,7 @@
 !> variables, but is intended to eventually replace the mesh pool later.
 !
 !-------------------------------------------------------------------------------
+!#undef USE_YAKL
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -33,6 +34,8 @@
 #endif
 
 #define C_WRAP(var) CAT(c_,var) = c_loc(var)
+#define C_DECOMP1D(var) \
+    CAT(c_,var) = ocn_yakl_type(size(var),c_loc(var))
 #define C_DECOMP(var) \
     CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
 
@@ -684,15 +687,13 @@ contains
          C_DECOMP(edgesOnEdge)
          C_DECOMP(verticesOnEdge)
          C_DECOMP(cellsOnVertex)
-         C_DECOMP(fEdge)
+         C_DECOMP1D(fEdge)
 
          mxNEdges = size(edgesOnCell, 1)
          mxConC = size(cellsOnCell,1)
          esonDim = size(edgeSignOnVertex, 1)
          call ocn_mesh_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels,mxNEdges, &
                                  mxConC, esonDim, vertexDegree)
-        
-         !call ocn_diagnostics_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels)
 #endif
 
       !-----------------------------------------------------------------
