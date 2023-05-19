@@ -2083,13 +2083,14 @@ contains
          div_huTransport  ! local div of thick-weighted transport vel
 
       interface
-          subroutine ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, &
+          subroutine ocn_diagnostic_solve_vort_vel(use_gm, nCells, nCellsH, nEdges, normalGMBolusVelocity, &
                 normalTransportVelocity, vertVelocityTop, vertTransportVelocityTop, &
                 vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
                 kineticEnergyCell, tangentialVelocity) &
                         bind(C,name="ocn_diagnostic_solve_vort_vel")
             use iso_c_binding
             use mpas_kind_types
+            logical, intent(in), value :: use_gm
             integer(c_int), intent(in), value :: nCells, nCellsH, nEdges
             real(kind=RKIND), intent(in), dimension(*) :: normalGMBolusVelocity, normalTransportVelocity, &
                                             vertVelocityTop, vertTransportVelocityTop, &
@@ -2109,8 +2110,7 @@ contains
       nCells = nCellsOwned
       nCellsH = nCellsHalo( 2 )
       nEdges = nEdgesHalo( 2 )
-!#warning using yakl ocn_diagnostic_solve_vort_vel
-      call ocn_diagnostic_solve_vort_vel(nCells, nCellsH, nEdges, normalGMBolusVelocity, normalTransportVelocity, &
+      call ocn_diagnostic_solve_vort_vel(config_use_gm, nCells, nCellsH, nEdges, normalGMBolusVelocity, normalTransportVelocity, &
                                             vertVelocityTop, vertTransportVelocityTop, &
                                             vertGMBolusVelocityTop, relativeVorticityCell, divergence, &
                                             kineticEnergyCell, tangentialVelocity)

@@ -239,7 +239,7 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_zTop') :: c_zTop
    type(ocn_yakl_type), BIND(C, NAME='c_RiTopOfCell') :: c_RiTopOfCell
    type(ocn_yakl_type), BIND(C, NAME='c_BruntVaisalaFreqTop') :: c_BruntVaisalaFreqTop
-   type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
+!   type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
    type(ocn_yakl_type), BIND(C, NAME='c_montgomeryPotential') :: c_montgomeryPotential
    type(ocn_yakl_type), BIND(C, NAME='c_pressure') :: c_pressure
    type(ocn_yakl_type), BIND(C, NAME='c_surfacePressure') :: c_surfacePressure

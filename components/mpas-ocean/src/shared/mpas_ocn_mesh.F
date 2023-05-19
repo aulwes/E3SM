@@ -185,12 +185,12 @@ module ocn_mesh
       angleEdge, &! angle the edge normal makes with local east
       distanceToCoast ! distance to nearest coast cell 
 
-   real(kind=RKIND), public, dimension(:), pointer :: &
+   real(kind=RKIND), public, dimension(:), allocatable, target :: &
       invAreaTriangle, &  ! 1.0 / area triangle
       invAreaCell   ! inverse of area of each cell
 
    ! Multiplicative masks and vectors for various conditions
-   real(kind=RKIND), public, dimension(:, :), pointer :: &
+   real(kind=RKIND), public, dimension(:, :), allocatable, target :: &
       edgeMask, &! mask to denote active edges    with depth
       cellMask, &! mask to denote active cells    with depth
       vertexMask, &! mask to denote active vertices with depth
@@ -212,7 +212,7 @@ module ocn_mesh
       coeffs_reconstruct  ! coeffs for reconstructing vectors at cell centers
 
    ! Derived mesh values needed
-   real(kind=RKIND), public, dimension(:, :), pointer :: &
+   real(kind=RKIND), public, dimension(:, :), allocatable, target :: &
       edgeAreaFractionOfCell
 
    !}}}
