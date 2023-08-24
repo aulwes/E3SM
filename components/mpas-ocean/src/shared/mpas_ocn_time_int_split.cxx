@@ -2,6 +2,7 @@
 #include "mpas_ocn_yakl_c.hxx"
 #include "mpas_ocn_mesh_c.hxx"
 #include "mpas_ocn_yakl_types.hxx"
+#include "mpas_ocn_diagnostics_yakl_c.hxx"
 
 #define GET_DPTR(v) (static_cast<double *>((timeint_split::c_##v).ptr))
 
@@ -31,18 +32,7 @@ void ocn_time_int_init()
 {    
     using namespace timeint_split;
     
-    stream1 = yakl::create_stream();
-    stream2 = yakl::create_stream();
 
-    /*
-    std::cerr << " barotropicForcing shape = " << c_barotropicForcing.shape[0] <<
-        " " <<  c_barotropicForcing.shape[1]
-        << std::endl;
-
-    std::cerr << " normalBaroclinicVelocityCur shape = " << c_normalBaroclinicVelocity.shape[0] <<
-        " " <<  c_normalBaroclinicVelocity.shape[1]
-        << std::endl;
-    */
     normalVelocityTend = yakl_create_real("normalVelocityTend", 
                     c_normalVelocityTend.shape[0], c_normalVelocityTend.shape[1]);
     normalVelocityNew = yakl_create_real("normalVelocityNew", 
@@ -61,7 +51,7 @@ extern "C"
 void ocn_timeint_pre_baroclinic(double * h_ssh,
                            double * h_layerThicknessEdge)
 {
-    using timeint_split::stream1;
+    using diag_solve::stream1;
 
     yakl_update_device(diag_solve::ssh, h_ssh, stream1);
     yakl_update_device(diag_solve::layerThicknessEdge, h_layerThicknessEdge, stream1);
@@ -70,7 +60,7 @@ void ocn_timeint_pre_baroclinic(double * h_ssh,
 extern "C"
 void ocn_timeint_updvel(double * h_normalVelocityTend)
 {
-    using timeint_split::stream1;
+    using diag_solve::stream1;
 
     yakl_update_device(timeint_split::normalVelocityTend, h_normalVelocityTend, stream1);
 }
@@ -78,7 +68,7 @@ void ocn_timeint_updvel(double * h_normalVelocityTend)
 extern "C"
 void ocn_timeint_postfuperp()
 {
-    using timeint_split::stream1;
+    using diag_solve::stream1;
 
     double * hssh = new double[diag_solve::ssh->extent(0)];
     yakl_update_host(diag_solve::ssh, hssh, stream1);
@@ -92,8 +82,8 @@ void ocn_diag_solve_fuperp(double splitFact, double gravity, double dt, double *
                            double * h_normalBaroclinicVelocityCur,
                            double * h_normalBaroclinicVelocityNew, double * h_normalVelocity)
 {
-    using timeint_split::stream1;
-    using timeint_split::stream2;
+    using diag_solve::stream1;
+    using diag_solve::stream2;
 
     yakl_update_device(timeint_split::normalBaroclinicVelocityCur, h_normalBaroclinicVelocityCur, stream1);
     yakl_update_device(timeint_split::normalBaroclinicVelocityNew, h_normalBaroclinicVelocityNew, stream1);

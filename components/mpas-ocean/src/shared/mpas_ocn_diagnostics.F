@@ -17,8 +17,6 @@
 !>  diagnostic variables, and other quantities such as vertAleTransportTop.
 !
 !-----------------------------------------------------------------------
-!#undef USE_YAKL
-
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -104,6 +102,8 @@ module ocn_diagnostics
    type(ocn_yakl_type), BIND(C, NAME='c_activeTracers') :: c_activeTracers
 #endif
 
+!#undef USE_YAKL
+
 !***********************************************************************
 
 contains
@@ -156,10 +156,11 @@ contains
         landIceMask
 
       interface
-          subroutine ocn_diagnostics_update_device(normalVelocity, layerThickness) &
+          subroutine ocn_diagnostics_update_device(normalVelocity, layerThickness, use_cvmix_kpp, config_use_gm) &
                         bind(C,name="ocn_diagnostics_update_device")
             use iso_c_binding
             use mpas_kind_types
+            logical, intent(in), value :: use_cvmix_kpp, config_use_gm
             real(kind=RKIND), intent(in), dimension(*) :: normalVelocity, layerThickness
           end subroutine
           
@@ -260,23 +261,23 @@ contains
 
 #ifdef USE_YAKL
       C_DECOMP(activeTracers)
-      call ocn_diagnostics_update_device(normalVelocity,layerThickness)
+      call ocn_diagnostics_update_device(normalVelocity,layerThickness, config_use_cvmix_kpp, config_use_gm)
 #endif
 
-      ! inputs: layerThickness, normalVelocity
-      ! output: layerThickEdgeMean, layerThickEdgeFlux
+      ! inputs: layerThickness, normalVelocity (stream1)
+      ! output: layerThickEdgeMean, layerThickEdgeFlux (stream1)
       call ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
                                                    layerThickness)
 
       ! inputs: normalVelocity
-      ! outputs: relativeVorticity, circulation
+      ! outputs: relativeVorticity, circulation (stream2)
       call ocn_relativeVorticity_circulation(relativeVorticity, circulation, normalVelocity, err)
 
       ! inputs: relativeVorticity, layerThickEdgeFlux, normalVelocity, normalTransportVelocity, 
       !         normalGMBolusVelocity
-      ! outputs: vertTransportVelocityTop, vertGMBolusVelocityTop, relativeVorticityCell, 
-      !          divergence, kineticEnergyCell, tangentialVelocity, vertMLEBolusVelocityTop
-      ! in and out: vertVelocityTop
+      ! outputs: vertTransportVelocityTop (stream2), vertGMBolusVelocityTop (stream1), relativeVorticityCell (stream1), 
+      !          divergence (stream1), kineticEnergyCell (stream1), tangentialVelocity (stream1)
+      ! in and out: vertVelocityTop (stream2)
       call ocn_diagnostic_solve_vortVel(relativeVorticity, &
              layerThickEdgeFlux, normalVelocity, normalTransportVelocity, &
              vertVelocityTop, vertTransportVelocityTop, relativeVorticityCell, &
@@ -284,6 +285,8 @@ contains
 
       !compute vertical velocity due to gm bolus velocity if requested
       if (config_use_gm) then
+         ! inputs: layerThickEdgeFlux, normalGMBolusVelocity, vertGMBolusVelocityTop
+         ! outputs: vertGMBolusVelocityTop
          call ocn_diagnostic_solve_GMvel(layerThickEdgeFlux, normalGMBolusVelocity, vertGMBolusVelocityTop)
       end if
 
@@ -345,8 +348,8 @@ contains
       end if
 
       ! inputs :: normalVelocity, tangentialVelocity, layerThickness, relativeVorticity
-      ! outputs :: normRelVortEdge, normPlanetVortEdge, 
-      !            normalizedRelativeVorticityCell
+      ! outputs :: normRelVortEdge (stream1), normPlanetVortEdge (stream1), 
+      !            normalizedRelativeVorticityCell (stream2)
       call ocn_diagnostic_solve_vorticity(dt, normalVelocity, tangentialVelocity, &
                 layerThickness, relativeVorticity, &
                 normRelVortEdge, normPlanetVortEdge, &
@@ -366,7 +369,7 @@ contains
       ! This section must be placed in the code before computing the density.
       !
       ! inputs : layerThickness
-      ! outputs : zMid, zTop, ssh)
+      ! outputs : zMid, zTop, ssh (all stream2)
       call ocn_diagnostic_solve_z_coordinates(layerThickness, zMid, zTop, ssh)
 
       !
@@ -412,9 +415,6 @@ contains
       !
       ! inputs: layerThickness, density, surfacePressure
       ! outputs: montgomeryPotential, pressure
-      
-      !if ( mpas_myrank == 11 ) &
-       ! print *, ' density(2,1) = ', density(2,1)
       call ocn_diagnostic_solve_pressure(layerThickness, density, &
                 surfacePressure, montgomeryPotential, pressure)
 
@@ -1621,6 +1621,16 @@ contains
          fracSfcLayer,    &! fraction of layer in which sfc layer exists
          rSfcLayer         ! real vertical layer index for sfc lyr
 
+      interface
+          subroutine ocn_diagnostic_solve_surf_use_cvmix(nCells, nEdges, surfaceLayerDepth) &
+                        bind(C,name="ocn_diagnostic_solve_surf_use_cvmix")
+            use iso_c_binding
+            use mpas_kind_types
+            integer(c_int), intent(in), value :: nCells, nEdges
+            real(kind=RKIND), intent(in), value :: surfaceLayerDepth
+          end subroutine
+      end interface
+
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -1634,6 +1644,10 @@ contains
 
          sfcLayerDepth = config_cvmix_kpp_surface_layer_averaging
          nTracers = size(activeTracers, dim=1)
+#ifdef USE_YAKL
+         call ocn_diagnostic_solve_surf_use_cvmix(nCellsOwned, nEdgesOwned, sfcLayerDepth)
+#else
+
 #ifdef MPAS_OPENACC
          !$acc parallel loop gang vector &
          !$acc    present(tracersSurfaceLayerValue, activeTracers, &
@@ -1756,6 +1770,8 @@ contains
          !$omp end do
          !$omp end parallel
 #endif
+
+#endif ! USE_YAKL
 
       endif ! KPP on
 

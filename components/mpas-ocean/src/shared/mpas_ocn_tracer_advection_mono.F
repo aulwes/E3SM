@@ -34,9 +34,9 @@
 module ocn_tracer_advection_mono
 
    ! module includes
-#ifdef _ADV_TIMERS
+!#ifdef _ADV_TIMERS
    use mpas_timer
-#endif
+!#endif
    use mpas_kind_types
 
    use ocn_config
@@ -60,6 +60,10 @@ module ocn_tracer_advection_mono
    type(ocn_yakl_type), BIND(C, NAME='c_flxIn')    :: c_flxIn
    type(ocn_yakl_type), BIND(C, NAME='c_flxOut')    :: c_flxOut
    type(ocn_yakl_type), BIND(C, NAME='c_workTend')    :: c_workTend
+   type(ocn_yakl_type), BIND(C, NAME='c_transActiveTracerHorizontalAdvectionEdgeFlux')    :: c_transActiveTracerHorizontalAdvectionEdgeFlux
+   type(ocn_yakl_type), BIND(C, NAME='c_transActiveTracerHorizontalAdvectionTendency')    :: c_transActiveTracerHorizontalAdvectionTendency
+   type(ocn_yakl_type), BIND(C, NAME='c_transActiveTracerVerticalAdvectionTendency')    :: c_transActiveTracerVerticalAdvectionTendency
+   type(ocn_yakl_type), BIND(C, NAME='c_transActiveTracerVerticalAdvectionTopFlux')    :: c_transActiveTracerVerticalAdvectionTopFlux
 #endif
 
    ! module private variables
@@ -76,10 +80,11 @@ module ocn_tracer_advection_mono
              ocn_tracer_advection_mono_init
 
    interface
-      subroutine ocn_advect_mono_end() &
+      subroutine ocn_advect_mono_end(computeBudgets) &
                     bind(C,name="ocn_advect_mono_end")
         use iso_c_binding
         use mpas_kind_types
+        logical, intent(in), value :: computeBudgets
       end subroutine
 
       subroutine ocn_advect_mono_init(coef3rdOrder, eps) &
@@ -182,6 +187,20 @@ module ocn_tracer_advection_mono
         use iso_c_binding
         use mpas_kind_types
         real(c_double), intent(in), dimension(*) :: lowOrderFlx,highOrderFlx, workTend
+      end subroutine
+
+      subroutine ocn_advect_mono_update_for_hbudgets(iTracer, nEdges) &
+                    bind(C,name="ocn_advect_mono_update_for_hbudgets")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), value :: iTracer, nEdges
+      end subroutine
+
+      subroutine ocn_advect_mono_update_for_vbudgets(iTracer) &
+                    bind(C,name="ocn_advect_mono_update_for_vbudgets")
+        use iso_c_binding
+        use mpas_kind_types
+        integer(c_int), intent(in), value :: iTracer
       end subroutine
 
       subroutine ocn_advect_mono_update_for_flxchk(tracerCur, hProv, hNewInv, &
@@ -299,6 +318,10 @@ module ocn_tracer_advection_mono
         
       integer :: tendSize(3)
       real (kind=RKIND), dimension(:,:,:), allocatable, target :: transTend
+      real (kind=RKIND), dimension(:,:,:), allocatable, target :: transActiveTracerHorizontalAdvectionEdgeFlux
+      real (kind=RKIND), dimension(:,:,:), allocatable, target :: transActiveTracerHorizontalAdvectionTendency
+      real (kind=RKIND), dimension(:,:,:), allocatable, target :: transActiveTracerVerticalAdvectionTendency
+      real (kind=RKIND), dimension(:,:,:), allocatable, target :: transActiveTracerVerticalAdvectionTopFlux
 
       ! end of preamble
       !----------------
@@ -311,6 +334,44 @@ module ocn_tracer_advection_mono
       numTracers  = size(tracers,dim=1)
 
       allocate(transTend   (size(tend,2) ,size(tend,3), size(tend,1)))
+#ifdef USE_YAKL
+      if ( computeBudgets ) then
+          allocate(transActiveTracerHorizontalAdvectionEdgeFlux( &
+            size(activeTracerHorizontalAdvectionEdgeFlux,1) , &
+            size(activeTracerHorizontalAdvectionEdgeFlux,2), &
+            size(activeTracerHorizontalAdvectionEdgeFlux,3)), &
+          transActiveTracerHorizontalAdvectionTendency( &
+            size(activeTracerHorizontalAdvectionTendency ,1) , &
+            size(activeTracerHorizontalAdvectionTendency,2), &
+            size(activeTracerHorizontalAdvectionTendency,3)), &
+          transActiveTracerVerticalAdvectionTendency( &
+            size(activeTracerVerticalAdvectionTendency,1) , &
+            size(activeTracerVerticalAdvectionTendency,2), &
+            size(activeTracerVerticalAdvectionTendency,3)), &
+          transActiveTracerVerticalAdvectionTopFlux( &
+            size(activeTracerVerticalAdvectionTopFlux,1), &
+            size(activeTracerVerticalAdvectionTopFlux,2), &
+            size(activeTracerVerticalAdvectionTopFlux,3)))
+          ! leaving this here in case we want to revert to using
+          ! transpose.
+!          allocate(transActiveTracerHorizontalAdvectionEdgeFlux( &
+!            size(activeTracerHorizontalAdvectionEdgeFlux,2) , &
+!            size(activeTracerHorizontalAdvectionEdgeFlux,3), &
+!            size(activeTracerHorizontalAdvectionEdgeFlux,1)), &
+!          transActiveTracerHorizontalAdvectionTendency( &
+!            size(activeTracerHorizontalAdvectionTendency ,2) , &
+!            size(activeTracerHorizontalAdvectionTendency,3), &
+!            size(activeTracerHorizontalAdvectionTendency,1)), &
+!          transActiveTracerVerticalAdvectionTendency( &
+!            size(activeTracerVerticalAdvectionTendency,2) , &
+!            size(activeTracerVerticalAdvectionTendency,3), &
+!            size(activeTracerVerticalAdvectionTendency,1)), &
+!          transActiveTracerVerticalAdvectionTopFlux( &
+!            size(activeTracerVerticalAdvectionTopFlux,2), &
+!            size(activeTracerVerticalAdvectionTopFlux,3), &
+!            size(activeTracerVerticalAdvectionTopFlux,1)))
+      endif
+#endif ! USE_YAKL
       tendSize = shape(transTend)
 
       ! allocate temporary arrays
@@ -344,13 +405,17 @@ module ocn_tracer_advection_mono
         if ( isnan(normalThicknessFlux(1,1)) ) &
             print *," pre ocn_advect_mono_copyin: normalThicknessFlux is nan", normalThicknessFlux(1,1)
 
-!#if 0
 #ifdef USE_YAKL
       C_DECOMP(transTend)
+      C_DECOMP(transActiveTracerHorizontalAdvectionEdgeFlux)
+      C_DECOMP(transActiveTracerHorizontalAdvectionTendency)
+      C_DECOMP(transActiveTracerVerticalAdvectionTendency)
+      C_DECOMP(transActiveTracerVerticalAdvectionTopFlux)
       C_DECOMP(normalThicknessFlux)
       C_DECOMP(flxIn)
       C_DECOMP(flxOut)
       C_DECOMP(workTend)
+!#endif
 
       call ocn_advect_mono_copyin(normalThicknessFlux, &
                                     w,layerThickness)
@@ -458,7 +523,6 @@ module ocn_tracer_advection_mono
         ! Need all the edges around the 1 halo cells and owned cells
         nEdges = nEdgesHalo( 2 )
 
-!#if 0
 #ifdef USE_YAKL
 
         call ocn_advect_mono_set_flux(nCells,nEdges,tracerCur,tracerMin,tracerMax, &
@@ -603,7 +667,6 @@ module ocn_tracer_advection_mono
 !        allocate(tmp_wt(size(workTend,1),size(workTend,2)))
 !        allocate(tmp_in(size(flxIn,1),size(flxIn,2)))
 !        allocate(tmp_out(size(flxOut,1),size(flxOut,2)))
-!#if 0
 #ifdef USE_YAKL
 
         call ocn_advect_mono_set_flux_inout(mpas_myrank,nCellsAll, nCellsHalo(1), nEdgesAll, dt, &
@@ -744,18 +807,14 @@ module ocn_tracer_advection_mono
 
 #endif  !  USE_YAKL
 
-!        deallocate(tmp_wt,tmp_in,tmp_out, tmp_hf)
-
 
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('rescale horiz fluxes')
         call mpas_timer_start('flux accumulate')
 #endif
 
-!#if 0
 #ifdef USE_YAKL
 
-        !call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt)
         call ocn_advect_mono_compute_tend(iTracer,nCellsOwned,dt,transTend(:,:,iTracer), tracerCur)
 
 #else
@@ -816,11 +875,12 @@ module ocn_tracer_advection_mono
 #endif
         ! Compute budget and monotonicity diagnostics if needed
         if (computeBudgets) then
-        !#if 0
-#ifdef USE_YAKL
-           call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
-#endif
            nEdges = nEdgesHalo(2)
+#ifdef USE_YAKL
+           call ocn_advect_mono_update_for_hbudgets(iTracer, nEdges)
+
+#else
+
 #ifdef MPAS_OPENACC
            !$acc parallel loop private(k) &
            !$acc    present(activeTracerHorizontalAdvectionEdgeFlux, &
@@ -860,10 +920,10 @@ module ocn_tracer_advection_mono
            !$omp end parallel
 #endif
 
+#endif  ! USE_YAKL
         end if ! computeBudgets
 
         if (monotonicityCheck) then
-!#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_trchk(tracerCur, tracerMin, tracerMax)
 #endif
@@ -910,7 +970,6 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('cell init vert')
 #endif
 
-!#if 0
 #ifdef USE_YAKL
 
         call ocn_advect_mono_cell_init(nCellsAll)
@@ -944,10 +1003,8 @@ module ocn_tracer_advection_mono
         ! Need all owned and 1 halo cells
         nCells = nCellsHalo(1)
 
-!#if 0
 #ifdef USE_YAKL
 
-        !call ocn_advect_mono_vert_flux(mpas_myrank,nCells,vertOrder,flxIn,flxOut,&
         call ocn_advect_mono_vert_flux(mpas_myrank,nCells,vertOrder, &
                 lowOrderFlx,highOrderFlx,tracerMin,tracerMax)
 
@@ -1062,7 +1119,6 @@ module ocn_tracer_advection_mono
 #endif
         ! Need one halo of cells around owned cells
         nCells = nCellsHalo(1) ! Need one halo around owned cells
-!#if 0
 #ifdef USE_YAKL
 
        call ocn_advect_mono_update_tend(dt, iTracer, nCells, workTend)
@@ -1180,10 +1236,10 @@ module ocn_tracer_advection_mono
         call mpas_timer_start('advect diags vert')
 #endif
         if (computeBudgets) then
-!#if 0
 #ifdef USE_YAKL
-           call ocn_advect_mono_update_for_budgets(lowOrderFlx,highOrderFlx,workTend)
-#endif
+           call ocn_advect_mono_update_for_vbudgets(iTracer)
+
+#else
 
 #ifdef MPAS_OPENACC
            !$acc parallel loop &
@@ -1212,10 +1268,10 @@ module ocn_tracer_advection_mono
            !$omp end do
            !$omp end parallel
 #endif
+#endif  ! USE_YAKL
         end if ! computeBudgets
 
         if (monotonicityCheck) then
-!#if 0
 #ifdef USE_YAKL
            call ocn_advect_mono_update_for_flxchk(tracerCur, hProv, hNewInv, &
                                                   workTend)
@@ -1277,9 +1333,8 @@ module ocn_tracer_advection_mono
       call mpas_timer_start('deallocates')
 #endif
 
-!#if 0
 #ifdef USE_YAKL
-      call ocn_advect_mono_end()
+      call ocn_advect_mono_end(computeBudgets)
 #endif !USE_YAKL
 !#else
       !$acc exit data delete(wgtTmp, flxTmp, sgnTmp, &
@@ -1290,9 +1345,35 @@ module ocn_tracer_advection_mono
 
       do iTracer = 1,numTracers
          tend(iTracer,:,:) = transTend(:,:,iTracer)
+#ifdef USE_YAKL
+         ! we're not using transpose at the moment, but leaving this
+         ! code here in case we want to use transpose later.
+         if ( .false. ) then
+         !if ( computeBudgets ) then
+             call mpas_timer_start('copy trans active tracer')
+             ActiveTracerHorizontalAdvectionEdgeFlux(iTracer,:,:) = &
+                    transActiveTracerHorizontalAdvectionEdgeFlux(:,:,iTracer)
+             ActiveTracerHorizontalAdvectionTendency(iTracer,:,:) = &
+                    transActiveTracerHorizontalAdvectionTendency(:,:,iTracer)
+             ActiveTracerVerticalAdvectionTendency(iTracer,:,:) = &
+                    transActiveTracerVerticalAdvectionTendency(:,:,iTracer)
+             ActiveTracerVerticalAdvectionTopFlux(iTracer,:,:) = &
+                    transActiveTracerVerticalAdvectionTopFlux(:,:,iTracer)
+             call mpas_timer_stop('copy trans active tracer')
+         endif
+#endif ! USE_YAKL
       end do
       
       deallocate(transTend)
+#ifdef USE_YAKL
+      if ( computeBudgets ) then
+            deallocate(transActiveTracerHorizontalAdvectionEdgeFlux, &
+            transActiveTracerHorizontalAdvectionTendency, &
+            transActiveTracerVerticalAdvectionTendency, &
+            transActiveTracerVerticalAdvectionTopFlux &
+            )
+      endif
+#endif ! USE_YAKL
 
       deallocate(wgtTmp,       &
                  flxTmp,       &
@@ -1369,7 +1450,7 @@ module ocn_tracer_advection_mono
 
       ! Set flag for checking monotonicity
       monotonicityCheck = config_check_tracer_monotonicity
-!#if 0
+
 #ifdef USE_YAKL
       call ocn_advect_mono_init(coef3rdOrder,eps)
 #endif

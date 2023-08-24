@@ -309,11 +309,11 @@ contains
          boundaryCellTmp
 
       interface
-          subroutine ocn_mesh_yakl_init(nCells, nEdges, nVerticesAll, nVertLevels, &
+          subroutine ocn_mesh_yakl_init(nCells, nCellsOwned, nEdges, nEdgesOwned, nVerticesAll, nVertLevels, &
                                         mxNEdges, mxConC, esonDim, vertexDegree) &
                         bind(C,name="ocn_mesh_yakl_init")
             use iso_c_binding
-            integer(c_int), intent(in), value :: nCells, nEdges, nVerticesAll, nVertLevels, &
+            integer(c_int), intent(in), value :: nCells, nCellsOwned, nEdges, nEdgesOwned, nVerticesAll, nVertLevels, &
                                                  mxNEdges, mxConC, esonDim, vertexDegree
           end subroutine
 
@@ -692,7 +692,7 @@ contains
          mxNEdges = size(edgesOnCell, 1)
          mxConC = size(cellsOnCell,1)
          esonDim = size(edgeSignOnVertex, 1)
-         call ocn_mesh_yakl_init(nCellsAll, nEdgesAll, nVerticesAll, nVertLevels,mxNEdges, &
+         call ocn_mesh_yakl_init(nCellsAll, nCellsOwned, nEdgesAll, nEdgesOwned, nVerticesAll, nVertLevels,mxNEdges, &
                                  mxConC, esonDim, vertexDegree)
 #endif
 

@@ -20,7 +20,6 @@
 !>  See Jackett and McDougall, JTECH, Vol.12, pp 381-389, April, 1995.
 !
 !-----------------------------------------------------------------------
-!#undef USE_YAKL
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a

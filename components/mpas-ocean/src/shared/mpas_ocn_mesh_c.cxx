@@ -10,7 +10,9 @@ namespace mesh
 {
 
 int nCellsAll,
+    nCellsOwned,
     nEdgesAll,
+    nEdgesOwned,
     nVertices,
     nVertLevels
     ;
@@ -126,14 +128,16 @@ void ocn_tracer_advect_yakl_init()
 
 
 extern "C"
-void ocn_mesh_yakl_init(int nCellsAll, int nEdgesAll, int nVertices, int nVertLevels, int maxNEdges, 
+void ocn_mesh_yakl_init(int nCellsAll, int nCellsOwned, int nEdgesAll, int nEdgesOwned, int nVertices, int nVertLevels, int maxNEdges, 
                         int mxConC, int esonDim, int vertexDegree)
 {
     //std::cerr << " nVertices, nVertLevels, nCells, nEdges = " << nVertices << " " << nVertLevels << " " << nCellsAll << " " << nEdgesAll << std::endl;
     //std::cerr << " esonDim = " << esonDim << std::endl;
     //std::cerr << " maxNEdges, mxConC, advSize = " << maxNEdges << " " << mxConC << " " << advSize << std::endl;
     mesh::nCellsAll = nCellsAll;
+    mesh::nCellsOwned = nCellsOwned;
     mesh::nEdgesAll = nEdgesAll;
+    mesh::nEdgesOwned = nEdgesOwned;
     mesh::nVertices = nVertices;
     mesh::nVertLevels = nVertLevels;
     

@@ -11,7 +11,14 @@ extern int
     nVertices,
     nVertLevels
     ;
-    
+
+extern yakl::Stream
+     stream1,
+     stream2;
+
+extern yakl::Event
+    event1;
+
 extern
 d_double_1d_t   * ssh
     ;

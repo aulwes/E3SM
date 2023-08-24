@@ -8,7 +8,9 @@ namespace mesh
 {
 extern
 int nCellsAll,
+    nCellsOwned,
     nEdgesAll,
+    nEdgesOwned,
     nVertices,
     nVertLevels
     ;

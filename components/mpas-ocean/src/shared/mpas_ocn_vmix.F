@@ -473,12 +473,13 @@ contains
       real (kind=RKIND) :: A, m
 
       interface
-          subroutine ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef) &
+          subroutine ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef, normalVelocity) &
                         bind(C,name="ocn_vmix_vel_tend_impl")
             use iso_c_binding
             use mpas_kind_types
             real (kind=RKIND), intent(in), value :: dt !< [in] Time step
             real (kind=RKIND), intent(in), value :: implicitBottomDragCoef
+            real (kind=RKIND), intent(out), dimension(*) :: normalVelocity
           end subroutine
       end interface
 
@@ -486,10 +487,10 @@ contains
 
       if(.not.velVmixOn) return
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
 
-      call ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef)
+      call ocn_vmix_vel_tend_impl(dt,implicitBottomDragCoef, normalVelocity)
 
 #else
 
@@ -1247,7 +1248,6 @@ contains
 
       ! if using CVMix, then viscosity has to be averaged from cell centers to cell edges
       if ( config_use_cvmix ) then
-
          call mpas_timer_start('CVMix avg', .false.)
 #ifdef USE_YAKL
          call ocn_vmix_avg
@@ -1353,6 +1353,11 @@ contains
         call ocn_vel_vmix_tend_implicit(dt, kineticEnergyCell, &
           vertViscTopOfEdge, layerThickness, layerThickEdgeMean, normalVelocity, err)
       end if
+
+#ifdef USE_YAKL
+        call ocn_yakl_fence
+#endif
+
 #ifdef MPAS_OPENACC
       !$acc exit data copyout(normalVelocity)
 #endif

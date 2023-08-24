@@ -1,5 +1,6 @@
 #include "mpas_ocn_yakl_types.hxx"
 #include "mpas_ocn_yakl_c.hxx"
+#include "mpas_ocn_diagnostics_yakl_c.hxx"
 
 namespace eos_jm
 {
@@ -104,6 +105,8 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
     yakl::timer_start("ocn_eos_density_only");
     check_extents();
     
+    using diag_solve::stream2;
+    
     yakl_update_device(eos_jm::p, h_p);
     yakl_update_device(eos_jm::p2, h_p2);
     yakl_update_device(eos_jm::tracerSalt, h_tracerSalt);
@@ -178,7 +181,7 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nc},{1,nv}) ,
     YAKL_LAMBDA(int iCell,int k) {
         density(k, iCell) = 0.0;
-    });
+    }, yakl::DefaultLaunchConfig().set_stream(stream2));
 
     yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCells},{1,nVertLevels}) ,
     YAKL_LAMBDA(int iCell,int k)
@@ -256,10 +259,10 @@ void ocn_eos_density_only(int rank, int nCells, int nVertLevels,
             p(k) *(bup1s0t0 + bup1s0t1*tq +             
                   (bup1s0t2 + bup1s0t3*tq)*t2);
         */
-    });
+    }, yakl::DefaultLaunchConfig().set_stream(stream2));
 
-    yakl_update_host(eos_jm::density, h_density);
-    yakl::fence();
+    yakl_update_host(eos_jm::density, h_density, stream2);
+    //yakl::fence();
     yakl::timer_stop("ocn_eos_density_only");
 }
 
@@ -270,6 +273,9 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                         double * h_thermalExpansionCoeff, double * h_salineContractionCoeff)
 {
     check_extents();
+    using diag_solve::stream1;
+    using diag_solve::stream2;
+    using diag_solve::event1;
 
     YAKL_LOCAL_NS(eos_jm,p);
     YAKL_LOCAL_NS(eos_jm,p2);
@@ -472,11 +478,13 @@ void ocn_eos_density_exp(int nCells, int nVertLevels,
                               p(k)*(unt0+rhosfc)*dkds*denomk);
 
         salineContractionCoeff(k,iCell) = drhods / density(k,iCell);
-    });
+    }, yakl::DefaultLaunchConfig().set_stream(stream2));
+    event1.record(stream2);
+    stream1.wait_on_event(event1);
 
-    yakl_update_host(eos_jm::density, h_density);
-    yakl_update_host(eos_jm::salineContractionCoeff, h_salineContractionCoeff);
-    yakl_update_host(eos_jm::thermalExpansionCoeff, h_thermalExpansionCoeff);
+    yakl_update_host(eos_jm::density, h_density, stream1);
+    yakl_update_host(eos_jm::salineContractionCoeff, h_salineContractionCoeff, stream1);
+    yakl_update_host(eos_jm::thermalExpansionCoeff, h_thermalExpansionCoeff, stream1);
     //yakl::fence();
 }
 

@@ -2,6 +2,8 @@
 #define OCN_YAKL
 
 #include <iostream>
+#include <string> // for string and to_string()
+
 #ifdef YAKL_ARCH_CUDA
 #include <cuda_runtime.h>
 #elif defined(YAKL_ARCH_HIP)
@@ -13,6 +15,11 @@
 
 #define YAKL_LOCAL(lvar, var) auto & lvar = *(var)
 #define YAKL_LOCAL_NS(ns, var) auto & var = *(ns::var)
+
+#define RECORD_ALLOC    0
+
+extern std::map<std::string, std::vector<uintptr_t>>      _alloc_map;
+extern int ra_cnt;
 
 typedef struct
 {
@@ -52,6 +59,12 @@ yakl_create_array(const char * name, T...dims)
 
     ret_type * w_var_p = new ret_type(name, dims...);
 
+#ifdef RECORD_ALLOC
+    auto nm = std::string(name) + "_" + std::to_string(ra_cnt++);
+    if ( _alloc_map.find(nm) == _alloc_map.end() )
+        _alloc_map[nm] = std::vector<uintptr_t>();
+    _alloc_map[nm].push_back(reinterpret_cast<uintptr_t>(w_var_p->myData));
+#endif
     return w_var_p;
 }
 
@@ -64,6 +77,12 @@ yakl_wrap_array(const char * name, R * var_p, T...dims)
 
     arr_type h_var("h_var_p", var_p, dims...);
     ret_type * w_var_p = new ret_type(name, dims...);
+#ifdef RECORD_ALLOC
+    auto nm = std::string(name) + "_" + std::to_string(ra_cnt++);
+    if ( _alloc_map.find(nm) == _alloc_map.end() )
+        _alloc_map[nm] = std::vector<uintptr_t>();
+    _alloc_map[nm].push_back(reinterpret_cast<uintptr_t>(w_var_p->myData));
+#endif
 
     h_var.deep_copy_to(*w_var_p);
 

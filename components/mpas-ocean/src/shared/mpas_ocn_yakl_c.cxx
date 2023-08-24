@@ -10,6 +10,10 @@
 #include <cmath>
 #include <algorithm>    // std::count_if
 #include<numeric>
+#include <unistd.h>
+
+std::map<std::string, std::vector<uintptr_t>>      _alloc_map;
+int ra_cnt = 0;
 
 // Timer from https://gist.github.com/mcleary/b0bf4fa88830ff7c882d
 class Timer
@@ -90,6 +94,21 @@ void finalize_yakl()
     cnt = std::count_if(uptimes.begin(), uptimes.end(), [](double v){return v > .5;});
     if ( cnt > 0 ) std::cerr << " Update cnt exceeding .5 sec = " << cnt << std::endl;
 */
+#ifdef RECORD_ALLOC
+    int pid = getpid();
+    std::string filen = "alloc_map_"+std::to_string(pid)+".csv";
+    
+    std::ofstream mapf;
+    mapf.open(filen);
+    std::cerr << " writing out alloc map with " << _alloc_map.size() << " entries." << std::endl;
+    for ( const auto& [vname, vaddr] : _alloc_map ) {
+        mapf << vname << ",";
+        for ( const auto & addr : vaddr )
+            mapf << addr << ",";
+        mapf << std::endl;
+    }
+    mapf.close();
+#endif
     yakl::finalize();
 }
 

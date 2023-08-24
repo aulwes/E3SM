@@ -17,3 +17,5 @@ typedef yakl::Array<int,2,yakl::memHost,yakl::styleFortran>  h_int_2d_t;
 typedef yakl::Array<real,3,yakl::memHost,yakl::styleFortran>  h_double_3d_t;
 typedef yakl::Array<real,3,yakl::memDefault,yakl::styleFortran>  d_double_3d_t;
 
+typedef yakl::Array<real,4,yakl::memDefault,yakl::styleFortran>  d_double_4d_t;
+
