@@ -124,6 +124,15 @@ contains
          qArr,         &! temporary vorticity array
          tmpVorticity   ! vorticity on edge
 
+      interface
+          subroutine ocn_tendency_vel_hadv_coriolis(usePlanetVor) &
+                        bind(C,name="ocn_tendency_vel_hadv_coriolis")
+            use iso_c_binding
+            use mpas_kind_types
+            logical, intent(in), value :: usePlanetVor
+          end subroutine
+      end interface
+
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -134,6 +143,10 @@ contains
       err = 0
       if (hadvCoriolisDisabled) return
       call mpas_timer_start("coriolis")
+
+#if USE_YAKL
+      call ocn_tendency_vel_hadv_coriolis(usePlanetVorticity)
+#else
 
       !*** allocate and transfer temporary arrays
 
@@ -254,6 +267,8 @@ contains
 
       !$acc exit data delete(tmpVorticity, qArr)
       deallocate(qArr,tmpVorticity)
+
+#endif ! USE_YAKL
 
       call mpas_timer_stop("coriolis")
 

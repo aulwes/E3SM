@@ -112,6 +112,14 @@ contains
       real (kind=RKIND), dimension(:,:), allocatable :: &
          w_dudzTopEdge  ! w*du/dz at top of edge
 
+      interface
+          subroutine ocn_tendency_vel_vadv() &
+                        bind(C,name="ocn_tendency_vel_vadv")
+            use iso_c_binding
+            use mpas_kind_types
+          end subroutine
+      end interface
+
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -123,6 +131,9 @@ contains
       if (velVadvOff) return
       call mpas_timer_start("vel vadv")
 
+#ifdef USE_YAKL
+      call ocn_tendency_vel_vadv
+#else
 
       allocate(w_dudzTopEdge(nVertLevels+1,nEdgesAll))
       !$acc enter data create(w_dudzTopEdge)
@@ -190,6 +201,8 @@ contains
 
       !$acc exit data delete(w_dudzTopEdge)
       deallocate(w_dudzTopEdge)
+
+#endif ! USE_YAKL
 
       call mpas_timer_stop("vel vadv")
 

@@ -18,6 +18,17 @@
 !
 !-----------------------------------------------------------------------
 
+#ifdef __GFORTRAN__
+#define PASTE(a) a
+#define CAT(a,b) PASTE(a)b
+#define QCAT(a,b) 'PASTE(a)b'
+#else
+#define PASTE(a,b) a/**/b
+#define CAT(a,b) PASTE(a,b)
+#endif
+#define C_DECOMP(var) \
+    CAT(c_,var) = ocn_yakl_type(shape(var),c_loc(var))
+
 module ocn_tendency
 
    use mpas_derived_types
@@ -67,6 +78,9 @@ module ocn_tendency
    use ocn_wetting_drying
    use ocn_vel_tidal_potential
    use ocn_vel_self_attraction_loading
+#ifdef USE_YAKL
+   use ocn_yakl
+#endif
 
    implicit none
    private
@@ -95,6 +109,9 @@ module ocn_tendency
    ! Private module variables
    !
    !--------------------------------------------------------------------
+#ifdef USE_YAKL
+   type(ocn_yakl_type), BIND(C, NAME='c_tendVel') :: c_tendVel
+#endif
 
    integer :: apply_Dhf_to_hhf, use_highFreqThick_restore
 
@@ -264,6 +281,14 @@ contains
       ! Input structures with lots of fields
       type (mpas_pool_type), intent(in) :: statePool ! replace
 
+      interface
+              subroutine ocn_tendency_update_device() &
+                            bind(C,name="ocn_tendency_update_device")
+                use iso_c_binding
+                use mpas_kind_types
+              end subroutine
+      end interface
+
       !-----------------------------------------------------------------
       ! output variables
       !-----------------------------------------------------------------
@@ -345,7 +370,10 @@ contains
                                              sfcStress)
       call mpas_pool_get_array(forcingPool, 'surfaceStressMagnitude', &
                                              sfcStressMag)
-
+#ifdef USE_YAKL
+      C_DECOMP(normalVelocity)
+      call ocn_tendency_update_device()
+#endif
       !*** Transfer data to device
       !$acc update device(zMid, divergence, relativeVorticity, normPlanetVortEdge, &
       !$acc               density, normRelVortEdge, montgomeryPotential, pressure, &
@@ -1485,10 +1513,27 @@ contains
 !>  other tendency routines.
 !
 !-----------------------------------------------------------------------
-    subroutine ocn_tendency_init(err)!{{{
+    subroutine ocn_tendency_init(domain, err)!{{{
+        type(domain_type), intent(in) :: domain
         integer, intent(out) :: err !< Output: Error flag
 
         logical, pointer :: config_use_highFreqThick_restore
+        type(block_type), pointer :: &
+           block                    ! variables in current subblock
+
+        real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
+           tendVel             !< [out] normal velocity tendency at edges
+           
+        type(mpas_pool_type), pointer :: &
+           tendPool
+
+        interface
+              subroutine ocn_tend_init() &
+                            bind(C,name="ocn_tend_init")
+                use iso_c_binding
+                use mpas_kind_types
+              end subroutine
+        end interface
 
         err = 0
 
@@ -1499,6 +1544,14 @@ contains
         else
            use_highFreqThick_restore = 0
         endif
+
+        block => domain%blocklist
+        call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
+        call mpas_pool_get_array(tendPool, 'normalVelocity', tendVel)
+#ifdef USE_YAKL
+        C_DECOMP(tendVel)
+        call ocn_tend_init()
+#endif
 
     end subroutine ocn_tendency_init!}}}
 

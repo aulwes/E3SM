@@ -1,5 +1,4 @@
 #include "mpas_ocn_diagnostics_yakl_c.hxx"
-#include "mpas_ocn_yakl_c.hxx"
 #include "mpas_ocn_diagnostics_variables.hxx"
 #include "mpas_ocn_mesh_c.hxx"
 #include "mpas_ocn_yakl_types.hxx"
@@ -77,10 +76,14 @@ d_double_2d_t   * normalVelocity,
                 * normalizedRelativeVorticityCell,
                 * layerThickEdgeFlux,
                 * layerThickEdgeMean,
+                * vertAleTransportTop,
                 * tracersSurfaceLayerValue
                 ;
 
-d_double_2d_t   * normalizedPlanetaryVorticityVertex,
+d_double_2d_t
+                * thermExpCoeff,
+                * salineContractCoeff,
+                * normalizedPlanetaryVorticityVertex,
                 * normalizedRelativeVorticityVertex,
                 * vorticityGradientNormalComponent,
                 * vorticityGradientTangentialComponent
@@ -89,11 +92,14 @@ d_double_2d_t   * normalizedPlanetaryVorticityVertex,
 d_double_3d_t   * activeTracers = nullptr
                 ;
 
+extern "C" ocn_yakl_type c_thermExpCoeff;
+extern "C" ocn_yakl_type c_salineContractCoeff;
 extern "C" ocn_yakl_type c_activeTracers;
 extern "C" ocn_yakl_type c_layerThickness;
 extern "C" ocn_yakl_type c_kineticEnergyCell;
 extern "C" ocn_yakl_type c_relativeVorticityCell;
 extern "C" ocn_yakl_type c_divergence;
+extern "C" ocn_yakl_type c_normalVelocity;
 extern "C" ocn_yakl_type c_normalGMBolusVelocity;
 extern "C" ocn_yakl_type c_normalTransportVelocity;
 extern "C" ocn_yakl_type c_vertTransportVelocityTop;
@@ -118,6 +124,7 @@ extern "C" ocn_yakl_type c_montgomeryPotential;
 extern "C" ocn_yakl_type c_tracersSurfaceLayerValue;
 extern "C" ocn_yakl_type c_indexSurfaceLayerDepth;
 extern "C" ocn_yakl_type c_normalVelocitySurfaceLayer;
+extern "C" ocn_yakl_type c_layerThickEdgeFlux;
 
 };
 
@@ -181,7 +188,6 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
 
     displacedDensity = yakl_create_real("displacedDensity", 
                     c_displacedDensity.shape[0], c_displacedDensity.shape[1]);
-    //std::cerr << " yakl density shape = " << c_diag_density.shape[0] << " " << c_diag_density.shape[1] << std::endl;
     density = yakl_create_real("density", 
                     c_diag_density.shape[0], c_diag_density.shape[1]);
     zMid = yakl_create_real("zMid",
@@ -199,6 +205,14 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
                     c_pressure.shape[0], c_pressure.shape[1]);
     surfacePressure = yakl_create_real("surfacePressure", 
                     c_surfacePressure.shape[0]);
+
+    thermExpCoeff = yakl_create_real("thermExpCoeff", 
+                    c_thermExpCoeff.shape[0], c_thermExpCoeff.shape[1]);
+    salineContractCoeff = yakl_create_real("salineContractCoeff", 
+                    c_salineContractCoeff.shape[0], c_salineContractCoeff.shape[1]);
+
+    vertAleTransportTop = yakl_create_real("vertAleTransportTop", 
+                    c_vertAleTransportTop.shape[0], c_vertAleTransportTop.shape[1]);
 
     edgeAreaFractionOfCell = yakl_wrap_array("edgeAreaFractionOfCell",
                             static_cast<double *>(c_edgeAreaFractionOfCell.ptr),

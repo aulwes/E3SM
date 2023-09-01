@@ -169,6 +169,17 @@ contains
          meridSshGrad,     &! config_meridional_ssh_grad
          zonalSshGrad       ! config_zonal_ssh_grad
 
+      interface
+          subroutine ocn_tendency_vel_pgrad_jacobts(indxT, indxS, pGradLvlWgt, &
+                                     density0Inv, gdensity0Inv) &
+                        bind(C,name="ocn_tendency_vel_pgrad_jacobts")
+            use iso_c_binding
+            use mpas_kind_types
+            integer, intent(in), value :: indxT, indxS
+            real(kind=RKIND), intent(in), value :: pGradLvlWgt, density0Inv, gdensity0Inv
+          end subroutine
+      end interface
+
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -430,6 +441,12 @@ contains
 
      case (pGradTypeJacobTS)
 
+#ifdef USE_YAKL
+
+         call ocn_tendency_vel_pgrad_jacobts(indxT, indxS, pGradLvlWgt, &
+                                             density0Inv, gdensity0Inv)
+#else
+
          allocate(JacobianDxDs(nVertLevels,nEdgesAll), &
                   JacobianTz(nVertLevels,nEdgesAll), &
                   JacobianSz(nVertLevels,nEdgesAll))
@@ -555,6 +572,8 @@ contains
 
          !$acc exit data delete (JacobianDxDs, JacobianTz, JacobianSz)
          deallocate(JacobianDxDs, JacobianTz, JacobianSz)
+
+#endif ! USE_YAKL
 
       case (pGradTypeConstForced)
 

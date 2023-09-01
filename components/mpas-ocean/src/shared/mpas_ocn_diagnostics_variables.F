@@ -221,6 +221,7 @@ module ocn_diagnostics_variables
 
 #ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_relativeVorticityCell') :: c_relativeVorticityCell
+   type(ocn_yakl_type), BIND(C, NAME='c_normalVelocity') :: c_normalVelocity
    type(ocn_yakl_type), BIND(C, NAME='c_divergence') :: c_divergence
    type(ocn_yakl_type), BIND(C, NAME='c_kineticEnergyCell') :: c_kineticEnergyCell
    type(ocn_yakl_type), BIND(C, NAME='c_normalGMBolusVelocity') :: c_normalGMBolusVelocity
@@ -239,13 +240,16 @@ module ocn_diagnostics_variables
    type(ocn_yakl_type), BIND(C, NAME='c_zTop') :: c_zTop
    type(ocn_yakl_type), BIND(C, NAME='c_RiTopOfCell') :: c_RiTopOfCell
    type(ocn_yakl_type), BIND(C, NAME='c_BruntVaisalaFreqTop') :: c_BruntVaisalaFreqTop
-!   type(ocn_yakl_type), BIND(C, NAME='c_edgeAreaFractionOfCell') :: c_edgeAreaFractionOfCell
+   type(ocn_yakl_type), BIND(C, NAME='c_layerThickEdgeFlux') :: c_layerThickEdgeFlux
    type(ocn_yakl_type), BIND(C, NAME='c_montgomeryPotential') :: c_montgomeryPotential
    type(ocn_yakl_type), BIND(C, NAME='c_pressure') :: c_pressure
    type(ocn_yakl_type), BIND(C, NAME='c_surfacePressure') :: c_surfacePressure
    type(ocn_yakl_type), BIND(C, NAME='c_barotropicForcing') :: c_barotropicForcing
 
+   type(ocn_yakl_type), BIND(C, NAME='c_thermExpCoeff') :: c_thermExpCoeff
+   type(ocn_yakl_type), BIND(C, NAME='c_salineContractCoeff') :: c_salineContractCoeff
 
+   type(ocn_yakl_type), BIND(C, NAME='c_vertAleTransportTop') :: c_vertAleTransportTop
    type(ocn_yakl_type), BIND(C, NAME='c_tracersSurfaceLayerValue') :: c_tracersSurfaceLayerValue
    type(ocn_yakl_type), BIND(C, NAME='c_indexSurfaceLayerDepth') :: c_indexSurfaceLayerDepth
    type(ocn_yakl_type), BIND(C, NAME='c_normalVelocitySurfaceLayer') :: c_normalVelocitySurfaceLayer
@@ -917,12 +921,17 @@ contains
       C_DECOMP(BruntVaisalaFreqTop)
       C_DECOMP(montgomeryPotential)
       C_DECOMP(pressure)
+      C_DECOMP(layerThickEdgeFlux)
       C_DECOMP1D(surfacePressure)
+
+      C_DECOMP(thermExpCoeff)
+      C_DECOMP(salineContractCoeff)
 
       C_DECOMP(tracersSurfaceLayerValue)
       C_DECOMP1D(indexSurfaceLayerDepth)
       C_DECOMP1D(normalVelocitySurfaceLayer)
 
+      C_DECOMP(vertAleTransportTop)
       C_DECOMP(vertDiffTopOfCell)
       C_DECOMP(vertViscTopOfCell)
       C_DECOMP(vertViscTopOfEdge)
