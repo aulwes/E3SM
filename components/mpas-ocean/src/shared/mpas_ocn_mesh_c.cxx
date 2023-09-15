@@ -56,6 +56,7 @@ d_double_1d_t   * areaCell,
 d_double_2d_t   * edgeSignOnCell,
                 * edgeSignOnVertex,
                 * kiteAreasOnVertex,
+                * edgeMask,
                 * advCoefs,
                 * advCoefs3rd,
                 * weightsOnEdge,
@@ -105,6 +106,7 @@ extern "C" ocn_yakl_type c_edgesOnEdge;
 extern "C" ocn_yakl_type c_cellsOnVertex;
 extern "C" ocn_yakl_type c_fEdge;
 extern "C" ocn_yakl_type c_advMaskHighOrder;
+extern "C" ocn_yakl_type c_edgeMask;
 
 extern "C"
 void ocn_tracer_advect_yakl_init()
@@ -167,6 +169,10 @@ void ocn_mesh_yakl_init(int nCellsAll, int nCellsOwned, int nEdgesAll, int nEdge
     weightsOnEdge = yakl_wrap_array("weightsOnEdge", dptr,
                             c_weightsOnEdge.shape[0], c_weightsOnEdge.shape[1]);
 
+    dptr = static_cast<double *>(c_edgeMask.ptr);
+    edgeMask = yakl_wrap_array("edgeMask", dptr,
+                            c_edgeMask.shape[0], c_edgeMask.shape[1]);
+
     dptr = static_cast<double *>(c_fEdge.ptr);
     fEdge = yakl_wrap_array("fEdge", dptr, c_fEdge.shape[0]);
 
@@ -223,5 +229,6 @@ void ocn_mesh_yakl_update()
     yakl_update_device(mesh::advCoefs3rd,  static_cast<double *>(c_advCoefs3rd.ptr));
     yakl_update_device(mesh::fVertex, c_fVertex);
     yakl_update_device(mesh::kiteAreasOnVertex, static_cast<double *>(c_kiteAreasOnVertex.ptr));
+    yakl_update_device(mesh::edgeMask, static_cast<double *>(c_edgeMask.ptr));
     //yakl_update_device(mesh::kiteIndexOnCell, static_cast<int *>(c_kiteIndexOnCell.ptr));
 }

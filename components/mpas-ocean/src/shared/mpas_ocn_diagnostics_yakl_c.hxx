@@ -44,6 +44,7 @@ d_double_2d_t   * normalVelocity,
                 * salineContractCoeff,
                 * layerThickEdgeMean,
                 * layerThickEdgeFlux,
+                * layerThickEdgeMean,
                 * layerThicknessEdge
                 ;
 
@@ -54,6 +55,7 @@ extern "C" ocn_yakl_type c_thermExpCoeff;
 extern "C" ocn_yakl_type c_salineContractCoeff;
 
 extern "C" ocn_yakl_type c_activeTracers;
+extern "C" ocn_yakl_type c_layerThickEdgeMean;
 extern "C" ocn_yakl_type c_layerThickEdgeFlux;
 extern "C" ocn_yakl_type c_kineticEnergyCell;
 extern "C" ocn_yakl_type c_normalVelocity;

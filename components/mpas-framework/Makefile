@@ -706,6 +706,44 @@ spock-cray-yakl:
 	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
 	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
+cray-cray:
+	( $(MAKE) all \
+	"FC_PARALLEL = ftn" \
+	"CC_PARALLEL = cc" \
+	"CXX_PARALLEL = CC" \
+	"FC_SERIAL = ftn" \
+	"CC_SERIAL = cc" \
+	"CXX_SERIAL = CC" \
+	"FFLAGS_FPIEEE = -h flex_mp=rigorous" \
+	"FFLAGS_PROMOTION = -s real64" \
+	"FFLAGS_OPT = -g -O3 -h byteswapio -ef -f free -h noacc -em -M1077 -hipa0 -hzero" \
+	"CFLAGS_OPT = -O3 -h noacc" \
+	"CXXFLAGS_OPT = -O3 -h noacc" \
+	"LDFLAGS_OPT = -O3 -h noacc" \
+	"FFLAGS_ACC = -h acc -rm -ri" \
+	"CFLAGS_ACC = -h acc"  \
+	"FFLAGS_GPU = -DUSE_OMPOFFLOAD -homp -fopenmp" \
+	"LDFLAGS_GPU = -homp -fopenmp" \
+	"FFLAGS_DEBUG = -O0 -g -h byteswapio -ef -f free -Ktrap=divz,fp,inv,ovf" \
+	"CFLAGS_DEBUG = -O0 -g" \
+	"CXXFLAGS_DEBUG = -O0 -g" \
+	"LDFLAGS_DEBUG = -O0 -g -Ktrap=divz,fp,inv,ovf" \
+	"FFLAGS_OMP = -h omp" \
+	"CFLAGS_OMP = -h omp" \
+	"PICFLAG = -f pic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+	"OPENACC = $(OPENACC)" \
+	"OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
+	"USE_SHTNS = $(USE_SHTNS)" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
+
+        #"FFLAGS_OPT = -g -O3 -h byteswapio -ef -f free -h noacc -em " \
+
 cray-cray-yakl:
 		( $(MAKE) all \
         "FC_PARALLEL = ftn" \
@@ -716,10 +754,10 @@ cray-cray-yakl:
         "CXX_SERIAL = CC" \
         "FFLAGS_FPIEEE = -h flex_mp=rigorous" \
         "FFLAGS_PROMOTION = -s real64" \
-        "FFLAGS_OPT = -g -O3 -h byteswapio -ef -f free -h noacc -em " \
+	"FFLAGS_OPT = -g -O3 -h byteswapio -ef -f free -h noacc -em -M1077 -hipa0 -hzero" \
         "CFLAGS_OPT = -O3 -h noacc" \
-		"CXXFLAGS_OPT = -O3 -h noacc -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip" \
-		"LDFLAGS_OPT = -O3 -h noacc -g -fopenmp -L${ROCM_PATH}/hip/lib -lamdhip64 -lstdc++" \
+	"CXXFLAGS_OPT = -O3 -h noacc -g -std=c++17 -DYAKL_ARCH_HIP -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90a__=1 --rocm-path=${ROCM_PATH} --offload-arch=gfx90a -x hip" \
+	"LDFLAGS_OPT = -O3 -h noacc -g -fopenmp -L${ROCM_PATH}/hip/lib -lamdhip64 -lstdc++" \
         "FFLAGS_ACC = -h acc -rm -ri " \
         "CFLAGS_ACC = -h acc "  \
         "FFLAGS_GPU = -DUSE_OMPOFFLOAD -homp -fopenmp " \
@@ -739,9 +777,9 @@ cray-cray-yakl:
         "OPENACC = $(OPENACC)" \
         "OPENMP_OFFLOAD = $(OPENMP_OFFLOAD)" \
         "USE_SHTNS = $(USE_SHTNS)" \
-		"YAKL_CXXFLAGS = '-I${ROCM_PATH}/hip/include -D__HIP_PLATFORM_AMD__'" \
-		"USE_YAKL = $(USE_YAKL)" \
-		"YAKL_ARCH = HIP" \
+	"YAKL_CXXFLAGS = '-I${ROCM_PATH}/hip/include -D__HIP_PLATFORM_AMD__'" \
+	"USE_YAKL = $(USE_YAKL)" \
+	"YAKL_ARCH = HIP" \
         "CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
 crusher-cray-yakl:
@@ -1107,7 +1145,7 @@ ifeq "$(TIMER_LIB)" "gptl"
 	#override CPPFLAGS += -DMPAS_GPTL_TIMERS
 	override FCINCLUDES += -I${GPTL}/include
 	override CXXFLAGS += -I${GPTL}/include
-	override CPPFLAGS += -DMPAS_PERF_MOD_TIMERS
+	#override CPPFLAGS += -DMPAS_PERF_MOD_TIMERS
 	#override LIBS += -L${GPTL}/lib -lgptl -h omp
 	override LIBS += -L${GPTL}/lib -lgptl -lgptlf -lgptl -h omp
 	TIMER_MESSAGE="GPTL is being used for the timer interface"

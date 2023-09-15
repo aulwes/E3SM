@@ -125,6 +125,7 @@ extern "C" ocn_yakl_type c_tracersSurfaceLayerValue;
 extern "C" ocn_yakl_type c_indexSurfaceLayerDepth;
 extern "C" ocn_yakl_type c_normalVelocitySurfaceLayer;
 extern "C" ocn_yakl_type c_layerThickEdgeFlux;
+extern "C" ocn_yakl_type c_layerThickEdgeMean;
 
 };
 
@@ -162,7 +163,7 @@ void ocn_diagnostics_yakl_init(int nCells, int nEdges, int nVertices, int nVertL
     rSfcLayer = yakl_create_int("rSfcLayer", nVertLevels, nCells);
     normalVelocity = yakl_create_real("normalVelocity", nVertLevels, nEdges);
     layerThickness = yakl_create_real("layerThickness", c_layerThickness.shape[0], c_layerThickness.shape[1]);
-    layerThickEdgeMean = yakl_create_real("layerThickEdgeMean", nVertLevels, nEdges);
+    layerThickEdgeMean = yakl_create_real("layerThickEdgeMean", c_layerThickEdgeMean.shape[0], c_layerThickEdgeMean.shape[1]);
     layerThickEdgeFlux = yakl_create_real("layerThickEdgeFlux", nVertLevels, nEdges);
     layerThicknessEdge = yakl_create_real("layerThicknessEdge", nVertLevels, nEdges);
     circulation = yakl_create_real("circulation", nVertLevels, nVertices);

@@ -18,7 +18,7 @@
 !>
 !
 !-----------------------------------------------------------------------
-!#undef USE_YAKL
+!#undef USE_YAKL 
 
 #ifdef __GFORTRAN__
 #define PASTE(a) a
@@ -88,6 +88,7 @@ module ocn_vmix
 
 #ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_tracerGroupSurfaceFlux') :: c_tracerGroupSurfaceFlux
+   type(ocn_yakl_type), BIND(C, NAME='c_bottomDrag') :: c_bottomDrag
 #endif
 
 !***********************************************************************
@@ -1495,6 +1496,10 @@ contains
 
       integer, intent(out) :: err !< Output: error flag
 
+      type (block_type), pointer :: block ! structure with subdomain data
+      type (mpas_pool_type), pointer :: forcingPool
+      real (kind=RKIND), dimension(:), pointer :: bottomDrag
+
       interface
           subroutine ocn_vmix_yakl_init() &
                         bind(C,name="ocn_vmix_yakl_init")
@@ -1544,6 +1549,12 @@ contains
       err = ior(err, err_tmp)
 
 #ifdef USE_YAKL
+      block => domain%blocklist
+      call mpas_pool_get_subpool(block%structs, 'forcing', forcingPool)
+
+      call mpas_pool_get_array(forcingPool, 'bottomDrag', bottomDrag)
+      C_DECOMP(bottomDrag)
+
       call ocn_vmix_yakl_init
 #endif
    !--------------------------------------------------------------------

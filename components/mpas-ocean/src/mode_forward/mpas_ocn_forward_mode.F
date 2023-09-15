@@ -499,7 +499,7 @@ module ocn_forward_mode
       ! Initialize other modules
       call ocn_vmix_init(domain, err_tmp)
       ierr = ior(ierr, err_tmp)
-      call ocn_tendency_init(err_tmp)
+      call ocn_tendency_init(err_tmp, domain)
       ierr = ior(ierr,err_tmp)
       call ocn_vertical_advection_init(err_tmp)
       if ( configVertAdvMethod == vertAdvRemap ) &

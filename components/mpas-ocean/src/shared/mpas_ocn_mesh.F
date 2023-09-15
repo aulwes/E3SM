@@ -130,6 +130,7 @@ module ocn_mesh
    type(c_ptr), BIND(C, NAME='c_edgeSignOnCell') :: c_edgeSignOnCell
    type(c_ptr), BIND(C, NAME='c_edgeSignOnVertex') :: c_edgeSignOnVertex
    type(c_ptr), BIND(C, NAME='c_bottomDepth') :: c_bottomDepth
+   type(ocn_yakl_type), BIND(C, NAME='c_edgeMask') :: c_edgeMask
    type(ocn_yakl_type), BIND(C, NAME='c_kiteAreasOnVertex') :: c_kiteAreasOnVertex
    type(ocn_yakl_type), BIND(C, NAME='c_kiteIndexOnCell') :: c_kiteIndexOnCell
    type(ocn_yakl_type), BIND(C, NAME='c_verticesOnCell') :: c_verticesOnCell
@@ -679,6 +680,7 @@ contains
          C_WRAP(edgeSignOnCell)
          C_WRAP(edgeSignOnVertex)
          C_WRAP(bottomDepth)
+         C_DECOMP(edgeMask)
          C_DECOMP(kiteAreasOnVertex)
          C_DECOMP(edgeAreaFractionOfCell)
          C_DECOMP(kiteIndexOnCell)

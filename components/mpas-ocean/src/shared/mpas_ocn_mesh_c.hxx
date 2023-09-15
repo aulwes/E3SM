@@ -56,6 +56,7 @@ d_double_1d_t   * areaCell,
                 
 extern
 d_double_2d_t   * edgeSignOnCell,
+                * edgeMask,
                 * edgeSignOnVertex,
                 * kiteAreasOnVertex,
                 * advCoefs,

@@ -1513,7 +1513,7 @@ contains
 !>  other tendency routines.
 !
 !-----------------------------------------------------------------------
-    subroutine ocn_tendency_init(domain, err)!{{{
+    subroutine ocn_tendency_init(err, domain)!{{{
         type(domain_type), intent(in) :: domain
         integer, intent(out) :: err !< Output: Error flag
 
