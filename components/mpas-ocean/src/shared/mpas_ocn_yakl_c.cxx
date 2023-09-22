@@ -94,7 +94,7 @@ void finalize_yakl()
     cnt = std::count_if(uptimes.begin(), uptimes.end(), [](double v){return v > .5;});
     if ( cnt > 0 ) std::cerr << " Update cnt exceeding .5 sec = " << cnt << std::endl;
 */
-#ifdef RECORD_ALLOC
+#if RECORD_ALLOC
     int pid = getpid();
     std::string filen = "alloc_map_"+std::to_string(pid)+".csv";
     

@@ -13,14 +13,20 @@ d_double_1d_t   * bottomDrag
 d_double_2d_t   * vertDiffTopOfCell,
                 * vertViscTopOfCell,
                 * vertViscTopOfEdge,
-                * vertNonLocalFlux
+                * tracerGroupSurfaceFlux = nullptr
                 ;
 
+d_double_3d_t   * tracersGroup = nullptr,
+                * vertNonLocalFlux
+                ;
+                
 extern "C" ocn_yakl_type c_vertViscTopOfCell;
 extern "C" ocn_yakl_type c_vertDiffTopOfCell;
 extern "C" ocn_yakl_type c_vertViscTopOfEdge;
 extern "C" ocn_yakl_type c_vertNonLocalFlux;
+extern "C" ocn_yakl_type c_tracerGroupSurfaceFlux;
 extern "C" ocn_yakl_type c_bottomDrag;
+extern "C" ocn_yakl_type c_tracersGroup;
 
 }
 
@@ -31,8 +37,9 @@ void ocn_vmix_yakl_init() {
     YAKL_SCOPE(nVertLevels, mesh::nVertLevels);
     
     vertDiffTopOfCell = yakl_create_real("vertDiffTopOfCell",c_vertDiffTopOfCell.shape[0],c_vertDiffTopOfCell.shape[1]);
+    vertViscTopOfCell = yakl_create_real("vertViscTopOfCell",c_vertViscTopOfCell.shape[0],c_vertViscTopOfCell.shape[1]);
     vertViscTopOfEdge = yakl_create_real("vertViscTopOfEdge",c_vertViscTopOfEdge.shape[0],c_vertViscTopOfEdge.shape[1]);
-    vertNonLocalFlux = yakl_create_real("vertNonLocalFlux",c_vertNonLocalFlux.shape[0],c_vertNonLocalFlux.shape[1]);
+    vertNonLocalFlux = yakl_create_real("vertNonLocalFlux",c_vertNonLocalFlux.shape[0],c_vertNonLocalFlux.shape[1],c_vertNonLocalFlux.shape[1]);
     bottomDrag = yakl_create_real("bottomDrag",c_bottomDrag.shape[0]);
 }
 
@@ -41,10 +48,76 @@ void ocn_vmix_upd_device() {
     yakl_update_device(vmix::bottomDrag, GET_DPTR(bottomDrag));
     yakl_update_device(vmix::vertDiffTopOfCell, GET_DPTR(vertDiffTopOfCell));
     yakl_update_device(vmix::vertViscTopOfEdge, GET_DPTR(vertViscTopOfEdge));
+    yakl_update_device(vmix::vertViscTopOfCell, GET_DPTR(vertViscTopOfCell));
     yakl_update_device(vmix::vertNonLocalFlux, GET_DPTR(vertNonLocalFlux));
     yakl_update_device(diag_solve::normalVelocity, GET_DDPTR(normalVelocity));
     yakl_update_device(diag_solve::layerThickEdgeMean, GET_DDPTR(layerThickEdgeMean));
     yakl_update_device(diag_solve::kineticEnergyCell, GET_DDPTR(kineticEnergyCell));
+}
+
+extern "C"
+void ocn_vmix_wrap_sfcflux() {
+    using namespace vmix;
+
+    if ( nullptr == tracerGroupSurfaceFlux ) {
+        tracerGroupSurfaceFlux = yakl_wrap_array("tracerGroupSurfaceFlux", GET_DPTR(tracerGroupSurfaceFlux),
+            c_tracerGroupSurfaceFlux.shape[0], c_tracerGroupSurfaceFlux.shape[1]);
+    }
+    else if ( tracerGroupSurfaceFlux->extent(0) != c_tracerGroupSurfaceFlux.shape[0] ) {
+        yakl_delete(tracerGroupSurfaceFlux);
+        tracerGroupSurfaceFlux = yakl_wrap_array("tracerGroupSurfaceFlux", GET_DPTR(tracerGroupSurfaceFlux),
+            c_tracerGroupSurfaceFlux.shape[0], c_tracerGroupSurfaceFlux.shape[1]);
+    }
+    else {
+        yakl_update_device(vmix::tracerGroupSurfaceFlux, GET_DPTR(tracerGroupSurfaceFlux));
+    }
+
+    if ( nullptr == tracersGroup ) {
+        tracersGroup = yakl_wrap_array("tracersGroup", GET_DPTR(tracersGroup),
+            c_tracersGroup.shape[0], c_tracersGroup.shape[1], c_tracersGroup.shape[2]);
+    }
+    else if ( tracersGroup->extent(0) != c_tracersGroup.shape[0] ) {
+        yakl_delete(tracersGroup);
+        tracersGroup = yakl_wrap_array("tracersGroup", GET_DPTR(tracersGroup),
+            c_tracersGroup.shape[0], c_tracersGroup.shape[1], c_tracersGroup.shape[2]);
+    }
+    else {
+        yakl_update_device(vmix::tracersGroup, GET_DPTR(tracersGroup));
+    }
+}
+
+
+extern "C"
+void ocn_tracer_vmix_tend_implicit(double dt, bool config_cvmix_kpp_nonlocal_with_implicit_mix) {
+    YAKL_LOCAL_NS(vmix, vertDiffTopOfCell);
+    YAKL_LOCAL_NS(vmix, vertNonLocalFlux);
+    YAKL_LOCAL_NS(vmix, tracerGroupSurfaceFlux);
+    YAKL_LOCAL_NS(vmix, tracersGroup);
+
+    YAKL_LOCAL_NS(diag_solve, layerThickness);
+    YAKL_LOCAL_NS(diag_solve, bTemp);
+    YAKL_LOCAL_NS(diag_solve, rTemp);
+    YAKL_LOCAL_NS(diag_solve, cTemp);
+
+    YAKL_LOCAL_NS(mesh, minLevelCell);
+    YAKL_LOCAL_NS(mesh, maxLevelCell);
+
+    YAKL_SCOPE(nCellsOwned, mesh::nCellsOwned);
+
+    int num_tracers = tracersGroup.extent(0);
+    
+    if ( config_cvmix_kpp_nonlocal_with_implicit_mix ) {
+        yakl::fortran::parallel_for( yakl::fortran::Bounds<2>({1,nCellsOwned},{1,num_tracers}) ,
+        YAKL_LAMBDA(int iCell,int iTracer) {
+            int Nsurf = minLevelCell(iCell);
+            int N = maxLevelCell(iCell);
+            rTemp(iTracer,Nsurf) = tracersGroup(iTracer,Nsurf,iCell) + dt*tracerGroupSurfaceFlux(iTracer,iCell)
+                    * (-vertNonLocalFlux(1, Nsurf+1,iCell) )/ layerThickness(Nsurf,iCell);
+        }, yakl::DefaultLaunchConfig());
+    }
+    else
+    {
+    }
 }
 
 

@@ -1142,7 +1142,7 @@ ifeq "$(TIMER_LIB)" "tau"
 endif
 
 ifeq "$(TIMER_LIB)" "gptl"
-	#override CPPFLAGS += -DMPAS_GPTL_TIMERS
+	override CPPFLAGS += -DMPAS_GPTL_TIMERS
 	override FCINCLUDES += -I${GPTL}/include
 	override CXXFLAGS += -I${GPTL}/include
 	#override CPPFLAGS += -DMPAS_PERF_MOD_TIMERS

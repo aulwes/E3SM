@@ -88,6 +88,7 @@ module ocn_vmix
 
 #ifdef USE_YAKL
    type(ocn_yakl_type), BIND(C, NAME='c_tracerGroupSurfaceFlux') :: c_tracerGroupSurfaceFlux
+   type(ocn_yakl_type), BIND(C, NAME='c_tracersGroup') :: c_tracersGroup
    type(ocn_yakl_type), BIND(C, NAME='c_bottomDrag') :: c_bottomDrag
 #endif
 
@@ -1411,9 +1412,10 @@ contains
                           tracerGroupSurfaceFlux)
                endif
 
-#if 0
-!#ifdef USE_YAKL
+!#if 0
+#ifdef USE_YAKL
                C_DECOMP(tracerGroupSurfaceFlux)
+               C_DECOMP(tracersGroup)
                call ocn_vmix_wrap_sfcflux
 #endif
 

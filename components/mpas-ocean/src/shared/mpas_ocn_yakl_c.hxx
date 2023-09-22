@@ -59,7 +59,7 @@ yakl_create_array(const char * name, T...dims)
 
     ret_type * w_var_p = new ret_type(name, dims...);
 
-#ifdef RECORD_ALLOC
+#if RECORD_ALLOC
     auto nm = std::string(name) + "_" + std::to_string(ra_cnt++);
     if ( _alloc_map.find(nm) == _alloc_map.end() )
         _alloc_map[nm] = std::vector<uintptr_t>();
@@ -77,7 +77,7 @@ yakl_wrap_array(const char * name, R * var_p, T...dims)
 
     arr_type h_var("h_var_p", var_p, dims...);
     ret_type * w_var_p = new ret_type(name, dims...);
-#ifdef RECORD_ALLOC
+#if RECORD_ALLOC
     auto nm = std::string(name) + "_" + std::to_string(ra_cnt++);
     if ( _alloc_map.find(nm) == _alloc_map.end() )
         _alloc_map[nm] = std::vector<uintptr_t>();

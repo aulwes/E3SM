@@ -921,6 +921,7 @@ contains
       C_DECOMP(BruntVaisalaFreqTop)
       C_DECOMP(montgomeryPotential)
       C_DECOMP(pressure)
+      C_DECOMP(layerThickEdgeMean)
       C_DECOMP(layerThickEdgeFlux)
       C_DECOMP1D(surfacePressure)
 
